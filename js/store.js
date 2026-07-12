@@ -119,12 +119,16 @@ const Store = (() => {
 
   const addSubject = (sub) => {
     const subjects = getSubjects();
+    const credits = sub.credits !== undefined ? parseInt(sub.credits) : 3;
     const newSub = {
       id: genId(),
       name: sub.name || 'New Subject',
       code: sub.code || '',
       teacher: sub.teacher || '',
-      credits: sub.credits || 3,
+      credits: credits,
+      totalClasses: sub.totalClasses !== undefined ? parseInt(sub.totalClasses) : (credits * 15),
+      attended: sub.attended !== undefined ? parseInt(sub.attended) : 0,
+      bunked: sub.bunked !== undefined ? parseInt(sub.bunked) : 0,
       room: sub.room || '',
       color: sub.color || '#6366f1',
       emoji: sub.emoji || '📚',
@@ -214,8 +218,22 @@ const Store = (() => {
   const markAttendance = (subjectId, date, status) => {
     const att = getAttendance();
     if (!att[subjectId]) att[subjectId] = {};
+    const oldStatus = att[subjectId][date];
     att[subjectId][date] = status; // 'present' | 'absent' | 'late'
     saveAttendance(att);
+
+    // Sync to subject object counts
+    const subjects = getSubjects();
+    const s = subjects.find(sub => sub.id === subjectId);
+    if (s) {
+      if (s.attended === undefined) s.attended = 0;
+      if (s.bunked === undefined) s.bunked = 0;
+      
+      const logValues = Object.values(att[subjectId]);
+      s.attended = logValues.filter(v => v === 'present' || v === 'late').length;
+      s.bunked = logValues.filter(v => v === 'absent').length;
+      saveSubjects(subjects);
+    }
   };
 
   const getSubjectAttendance = (subjectId) => {
@@ -224,11 +242,20 @@ const Store = (() => {
   };
 
   const getAttendanceStats = (subjectId) => {
+    const subjects = getSubjects();
+    const s = subjects.find(sub => sub.id === subjectId || sub.name === subjectId);
+    if (s && s.attended !== undefined && s.bunked !== undefined) {
+      const attended = s.attended || 0;
+      const bunked = s.bunked || 0;
+      const conducted = attended + bunked;
+      const pct = conducted > 0 ? Math.round((attended / conducted) * 100) : 100;
+      return { total: conducted, present: attended, absent: bunked, pct };
+    }
     const records = getSubjectAttendance(subjectId);
     const values = Object.values(records);
     const total = values.length;
     const present = values.filter(v => v === 'present' || v === 'late').length;
-    const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    const pct = total > 0 ? Math.round((present / total) * 100) : 100;
     return { total, present, absent: total - present, pct };
   };
 

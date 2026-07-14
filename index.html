@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +10,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -21,72 +21,50 @@
   <link rel="stylesheet" href="css/animations.css">
 
   <style>
-    /* Additional inline styles for nav icons & misc */
-    .nav-icon { width: 18px; height: 18px; flex-shrink: 0; }
+    /* Nav icon size */
+    .nav-icon { width: 17px; height: 17px; flex-shrink: 0; }
 
     /* Onboarding overlay */
     #onboarding {
       position: fixed; inset: 0;
-      background: var(--bg-0);
+      background: var(--bg-app);
       z-index: 9999;
       display: flex; align-items: center; justify-content: center;
       padding: 20px;
     }
     .onboarding-card {
-      background: var(--bg-2);
+      background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--r-2xl);
       padding: 48px;
-      max-width: 460px;
+      max-width: 440px;
       width: 100%;
       text-align: center;
-      box-shadow: var(--shadow-lg), var(--shadow-glow);
-      animation: scaleIn 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: var(--shadow-lg);
+      animation: scaleIn 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     .onboarding-logo {
       width: 72px; height: 72px;
-      background: var(--accent-grad);
+      background: var(--blue-grad);
       border-radius: 20px;
       display: flex; align-items: center; justify-content: center;
       margin: 0 auto 24px;
-      box-shadow: var(--shadow-glow);
+      box-shadow: 0 8px 24px rgba(37,99,235,0.25);
       font-size: 2rem;
     }
 
-    /* Page header gradient line */
+    /* Page header accent underline — blue */
     .page-title::after {
       content: '';
       display: block;
-      width: 40px; height: 3px;
-      background: var(--accent-grad);
+      width: 32px; height: 3px;
+      background: var(--blue);
       border-radius: 2px;
-      margin-top: 8px;
+      margin-top: 6px;
     }
 
-    /* Topbar search */
-    .topbar-search {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--bg-3);
-      border: 1px solid var(--border);
-      border-radius: var(--r-full);
-      padding: 7px 14px;
-      width: 220px;
-      transition: all var(--t);
-    }
-    .topbar-search:focus-within {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-      width: 280px;
-    }
-    .topbar-search svg { width: 14px; height: 14px; color: var(--text-3); flex-shrink: 0; }
-    .topbar-search input { border: none; background: none; color: var(--text-1); font-size: 0.82rem; outline: none; width: 100%; }
-    .topbar-search input::placeholder { color: var(--text-3); }
-
-    /* Dashboard hero */
+    /* Dashboard padding */
     .dashboard-hero { padding: 28px; }
-
-    /* Opacity helper */
-    .opacity-60 { opacity: 0.6; }
   </style>
 </head>
 <body>
@@ -247,7 +225,7 @@
         </div>
 
         <!-- Theme toggle -->
-        <button class="btn-icon" id="theme-toggle-btn" title="Toggle theme" style="font-size:1rem;width:36px;height:36px;">☀️</button>
+        <button class="btn-icon" id="theme-toggle-btn" title="Toggle theme" style="font-size:1rem;width:36px;height:36px;">🌙</button>
 
         <!-- User Avatar -->
         <div class="flex gap-10 items-center" style="cursor:pointer;" onclick="App.navigate('settings')">

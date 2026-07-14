@@ -1,214 +1,206 @@
 /* ============================================
-   ANIMATIONS.CSS — Keyframes & Transitions
+   ANIMATIONS.CSS — Smooth Transitions
+   Premium, Purposeful, Performance-Optimized
    ============================================ */
 
-/* === PAGE TRANSITIONS === */
+/* ===================================================
+   PAGE TRANSITIONS
+   =================================================== */
 @keyframes pageFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* === MODAL === */
+/* ===================================================
+   MODAL
+   =================================================== */
 @keyframes modalSlideUp {
-  from { opacity: 0; transform: scale(0.92) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scale(0.95) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 
-/* === TOAST === */
+/* ===================================================
+   TOASTS — slide up from bottom center
+   =================================================== */
 @keyframes toastSlideIn {
-  from { opacity: 0; transform: translateX(100%) scale(0.9); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes toastSlideOut {
-  from { opacity: 1; transform: translateX(0) scale(1); }
-  to { opacity: 0; transform: translateX(100%) scale(0.9); }
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(16px) scale(0.95); }
 }
 
-/* === DROPDOWN === */
+/* ===================================================
+   DROPDOWN
+   =================================================== */
 @keyframes dropdownFadeIn {
-  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* === SKELETON === */
+/* ===================================================
+   CARD ENTRANCE
+   =================================================== */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ===================================================
+   SKELETON SHIMMER
+   =================================================== */
 @keyframes skeleton-shine {
-  0% { background-position: 200% 0; }
+  0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
 
-/* === CHECKBOX CHECK === */
+/* ===================================================
+   CHECKBOX POP
+   =================================================== */
 @keyframes checkPop {
-  0% { transform: scale(0); }
-  60% { transform: scale(1.2); }
+  0%   { transform: scale(0.5); }
+  60%  { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
 
-/* === COMPLETION ANIMATION === */
-@keyframes completePop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.06); }
-  100% { transform: scale(1); }
-}
-
+/* ===================================================
+   TASK STRIKETHROUGH
+   =================================================== */
 @keyframes strikethrough {
   from { width: 0; }
-  to { width: 100%; }
+  to   { width: 100%; }
 }
 
-/* === BOUNCE === */
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-
-/* === PULSE GLOW === */
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 12px rgba(99,102,241,0.3); }
-  50% { box-shadow: 0 0 28px rgba(99,102,241,0.6); }
-}
-
-/* === SPIN === */
+/* ===================================================
+   SPIN
+   =================================================== */
 @keyframes spin {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to   { transform: rotate(360deg); }
 }
 
-/* === FLOAT === */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+/* ===================================================
+   PULSE (subtle attention)
+   =================================================== */
+@keyframes softPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
 }
 
-/* === PROGRESS BAR SHIMMER === */
-@keyframes progressShimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+/* ===================================================
+   BOUNCE (tab change / celebration)
+   =================================================== */
+@keyframes popIn {
+  0%   { transform: scale(0.8); opacity: 0; }
+  70%  { transform: scale(1.04); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-/* === SLIDE IN FROM LEFT === */
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-/* === SLIDE IN FROM RIGHT === */
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-/* === SCALE IN === */
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.85); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* === COUNTER TICK === */
-@keyframes numberTick {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* === CARD ENTRANCE === */
-@keyframes cardEntrance {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* === APPLIED ANIMATION CLASSES === */
-.animate-float { animation: float 3s ease-in-out infinite; }
-.animate-bounce { animation: bounce 1s ease-in-out infinite; }
-.animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
-.animate-spin { animation: spin 1s linear infinite; }
-.animate-fade-in { animation: fadeIn 300ms ease; }
-.animate-slide-left { animation: slideInLeft 250ms ease; }
-.animate-slide-right { animation: slideInRight 250ms ease; }
-.animate-scale-in { animation: scaleIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-
-/* === STAGGER CHILDREN === */
+/* ===================================================
+   STAGGER — sequential card entrance
+   =================================================== */
 .stagger-children > * {
-  animation: cardEntrance 300ms ease both;
+  animation: cardIn 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 280ms; }
+
+/* ===================================================
+   APPLIED ANIMATION CLASSES
+   =================================================== */
+.animate-spin       { animation: spin 0.8s linear infinite; }
+.animate-fade       { animation: fadeIn 250ms ease; }
+.animate-scale-in   { animation: scaleIn 280ms cubic-bezier(0.34,1.56,0.64,1); }
+.animate-soft-pulse { animation: softPulse 2s ease-in-out infinite; }
+.animate-card-in    { animation: cardIn 320ms cubic-bezier(0.4,0,0.2,1) both; }
+
+/* ===================================================
+   GRADIENT TEXT (semantic)
+   =================================================== */
+.gradient-text {
+  background: var(--blue-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.gradient-text-green {
+  background: var(--green-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
-/* === HOVER EFFECTS === */
+.gradient-text-orange {
+  background: var(--orange-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-purple {
+  background: var(--purple-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===================================================
+   HOVER EFFECTS
+   =================================================== */
 .hover-lift {
   transition: transform var(--t), box-shadow var(--t);
 }
 .hover-lift:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.hover-scale {
-  transition: transform var(--t);
-}
-.hover-scale:hover { transform: scale(1.03); }
-
-/* === COMPLETION LINE-THROUGH === */
+/* ===================================================
+   COMPLETED TASK LINE-THROUGH
+   =================================================== */
 .completed-text {
   position: relative;
   color: var(--text-3);
 }
-
 .completed-text::after {
   content: '';
   position: absolute;
-  left: 0;
-  top: 50%;
+  left: 0; top: 50%;
   height: 1.5px;
   background: var(--text-3);
-  animation: strikethrough 300ms ease forwards;
+  animation: strikethrough 250ms ease forwards;
   border-radius: 1px;
 }
 
-/* === GRADIENT TEXT === */
-.gradient-text {
-  background: var(--accent-grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.gradient-text-2 {
-  background: var(--accent-grad-3);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* === GLOW BORDERS === */
-.glow-border {
-  border: 1px solid var(--border-accent);
-  box-shadow: 0 0 0 1px var(--accent-dim), inset 0 0 30px rgba(99,102,241,0.03);
-}
-
-/* === THEME TRANSITION === */
-* { transition-property: background-color, border-color, color, fill, stroke; transition-duration: 250ms; transition-timing-function: ease; }
-
-/* Allow overrides for specific properties */
-.no-theme-transition * { transition: none !important; }
-
-/* === LOADING SPINNER === */
-.spinner {
-  width: 20px;
-  height: 20px;
-  border: 2.5px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+/* ===================================================
+   THEME TRANSITIONS — targeted (not wildcard *)
+   =================================================== */
+body,
+.sidebar, .topbar, .main-content,
+.card, .stat-card, .modal, .toast,
+.input, .btn, .toggle, .checkbox,
+.nav-item, .badge, .tab, .chip,
+.dropdown-menu, .progress-fill {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
 }

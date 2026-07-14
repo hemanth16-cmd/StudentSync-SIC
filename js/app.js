@@ -26,7 +26,7 @@ const App = (() => {
   const init = () => {
     // Apply saved theme
     const settings = Store.getSettings();
-    document.documentElement.setAttribute('data-theme', settings.theme || 'dark');
+    document.documentElement.setAttribute('data-theme', settings.theme || 'light');
 
     // Update topbar
     updateTopbar(settings);
@@ -138,7 +138,7 @@ const App = (() => {
     if (avatarEl) avatarEl.textContent = name.slice(0,2).toUpperCase();
     if (nameEl) nameEl.textContent = name;
     const themeBtn = document.getElementById('theme-toggle-btn');
-    if (themeBtn) themeBtn.textContent = settings.theme === 'light' ? '🌙' : '☀️';
+    if (themeBtn) themeBtn.textContent = settings.theme === 'dark' ? '☀️' : '🌙';
   };
 
   return { init, navigate, toggleSidebar };

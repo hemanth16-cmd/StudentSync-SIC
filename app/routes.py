@@ -51,7 +51,7 @@ class Router:
                 alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            alignment=ft.Alignment.CENTER,
+            alignment=ft.Alignment(0, 0),
             expand=True,
         )
 

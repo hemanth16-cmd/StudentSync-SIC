@@ -172,6 +172,8 @@ def auth_view(page: ft.Page) -> ft.Control:
                     password=password,
                 )
 
+                Database.load()          # load (empty) cloud doc for new user
+
                 print(
                     f"[AUTH UI] Account created for {user.email}"
                 )
@@ -283,5 +285,5 @@ def auth_view(page: ft.Page) -> ft.Control:
     return ft.Container(
         content=card,
         expand=True,
-        alignment=ft.Alignment.CENTER,
+        alignment=ft.Alignment(0, 0),
     )

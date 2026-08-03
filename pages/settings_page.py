@@ -5,6 +5,8 @@ Settings Page View for StudentSync (Python Flet 0.86+)
 import flet as ft
 from app.theme import AppColors, get_text_primary, get_text_secondary, get_border_color
 from app.database import Database
+from app.state import AppState
+from authentication.auth_service import AuthService
 from components.common_widgets import create_card, create_section_header
 from components.modals import show_toast
 
@@ -30,6 +32,12 @@ def settings_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
             "sleepGoal":       int(sleep_f.value) if (sleep_f.value or "").isdigit() else 8,
         })
         show_toast(page, "Settings saved!", "success")
+
+    def _logout(e):
+        AuthService.logout()
+        # Clear in-memory data so the next user starts fresh
+        Database._data = {}
+        AppState.set_page("auth")
 
     profile_card = create_card(
         content=ft.Column(
@@ -67,12 +75,27 @@ def settings_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
         on_click=_save,
     )
 
+    logout_btn = ft.OutlinedButton(
+        "Log Out",
+        icon=ft.Icons.LOGOUT_ROUNDED,
+        style=ft.ButtonStyle(
+            color=AppColors.RED,
+            side=ft.BorderSide(1, AppColors.RED),
+            shape=ft.RoundedRectangleBorder(radius=10),
+            padding=ft.Padding(left=24, right=24, top=12, bottom=12),
+        ),
+        on_click=_logout,
+    )
+
     return ft.Column(
         [
             create_section_header("Settings & Preferences", "Configure your profile and targets", dark_mode=dark_mode),
             profile_card,
             academic_card,
-            ft.Row([save_btn], alignment=ft.MainAxisAlignment.END),
+            ft.Row(
+                [logout_btn, save_btn],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
         ],
         spacing=16, expand=True, scroll=ft.ScrollMode.AUTO,
     )

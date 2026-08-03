@@ -15,43 +15,110 @@ import uuid
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 
-from app.db import SessionLocal, Base, engine
-from app.repositories import (
-    UserRepository, NoteRepository, TodoRepository, SubjectRepository,
-    AssignmentRepository, ExpenseRepository, HabitRepository,
-    NotificationRepository, EventRepository, ResultRepository, FeeRepository,
-    DietRepository
-)
-from authentication.session import Session
+DB_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "studentsync_data.json")
 
-# Ensure all DB tables are created on first import
-import app.models  # noqa: F401 — triggers Base.metadata population
-Base.metadata.create_all(bind=engine)
+class Database:
+    _data: Dict[str, Any] = {}
+    @classmethod
+    def load(cls):
+        """Load the current user's data from Firestore."""
 
+        user = AuthService.current_user()
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+        # No logged-in user -> keep old local behavior
+        if user is None:
+            if os.path.exists(DB_FILE_PATH):
+                try:
+                    with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
+                        cls._data = json.load(f)
+                except Exception as e:
+                    print(f"Error loading local database: {e}")
+                    cls._init_defaults()
+            else:
+                cls._init_defaults()
+            return
 
-def _get_user_id() -> str:
-    user = Session.current_user()
-    return user.uid if user else "anonymous"
+        # Logged in -> load from Firestore
+        try:
+            db = get_db()
 
+            doc = (
+                db.collection("users")
+                .document(user.uid)
+                .collection("appData")
+                .document("database")
+                .get()
+            )
 
-def _obj_to_dict(obj) -> Dict[str, Any]:
-    """Convert a SQLAlchemy ORM row to a plain dict."""
-    if obj is None:
-        return {}
-    d = {}
-    for c in obj.__table__.columns:
-        v = getattr(obj, c.name)
-        if isinstance(v, datetime):
-            d[c.name] = v.isoformat()
-        elif isinstance(v, date):
-            d[c.name] = v.isoformat()
-        else:
-            d[c.name] = v
-    return d
+            if doc.exists:
+                cls._data = doc.to_dict()
+                print(f"[DATABASE] Loaded cloud data for {user.email}")
+            else:
+                print("[DATABASE] No cloud data found. Initializing defaults.")
+                cls._init_defaults()
+
+        except Exception as e:
+            print(f"[DATABASE] Failed to load cloud data: {e}")
+            cls._init_defaults()
+
+    @classmethod
+    def _init_defaults(cls):
+        cls._data = {
+            "visited": False,
+            "settings": {
+                "name": "Student",
+                "college": "",
+                "theme": "dark",
+                "accentColor": "#2563EB",
+                "gpaScale": 10,
+                "semesterStart": "",
+                "dailyGoalHours": 6,
+                "calorieGoal": 2000,
+                "sleepGoal": 8,
+                "budgetMonthly": 5000,
+            },
+            "todos": [],
+            "subjects": [],
+            "assignments": [],
+            "notes": [],
+            "attendance": {},
+            "habits": [],
+            "planner": [],
+            "sleep": [],
+            "diet": [],
+            "workouts": [],
+            "expenses": [],
+            "streak": {"count": 0, "lastDate": ""},
+            "daily_goals": [],
+            "tasks": [],
+            "study_sessions": [],
+        }
+        cls.save()
+
+    @classmethod
+    def save(cls):
+        """Save to Firestore if logged in, otherwise save locally."""
+
+        user = AuthService.current_user()
+
+        if user is None:
+            try:
+                with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
+                    json.dump(cls._data, f, indent=2)
+            except Exception as e:
+                print(f"Error saving local database: {e}")
+            return
+
+        try:
+            db = get_db()
+
+            (
+                db.collection("users")
+                .document(user.uid)
+                .collection("appData")
+                .document("database")
+                .set(cls._data)
+            )
 
 
     @classmethod

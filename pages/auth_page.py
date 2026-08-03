@@ -7,7 +7,7 @@ It does not directly access Session or Firebase.
 """
 
 import flet as ft
-
+from app.database import Database
 from authentication.auth_service import AuthService
 
 from app.state import AppState
@@ -185,6 +185,8 @@ def auth_view(page: ft.Page) -> ft.Control:
                     email=email,
                     password=password,
                 )
+
+                Database.load()          # <-- add this
 
                 print(
                     f"[AUTH UI] Logged in as {user.email}"

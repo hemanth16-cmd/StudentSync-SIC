@@ -2,6 +2,15 @@
 Database & Local Persistence Layer for StudentSync (Python Flet)
 Routes all operations through SQLAlchemy repositories (SQLite backend).
 """
+
+
+from authentication.auth_service import AuthService
+from authentication.firebase_auth import get_db
+from authentication.session import Session
+
+import json
+import os
+
 import uuid
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
@@ -45,18 +54,6 @@ def _obj_to_dict(obj) -> Dict[str, Any]:
     return d
 
 
-# ---------------------------------------------------------------------------
-# Database (static façade — maintains existing API for all UI pages)
-# ---------------------------------------------------------------------------
-
-class Database:
-    """
-    Thin static façade over SQLAlchemy repositories.
-    All methods return plain Python dicts (same shape as the old JSON layer)
-    so existing Flet pages need no changes.
-    """
-
-    # ── Bootstrap ─────────────────────────────────────────────────────────
     @classmethod
     def load(cls):
         """No-op — SQLite is always ready after module import."""

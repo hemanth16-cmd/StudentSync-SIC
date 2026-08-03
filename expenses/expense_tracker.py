@@ -29,8 +29,9 @@ from expenses.models import CATEGORIES, CATEGORY_COLORS, Expense
 from expenses.store import Store
 from expenses.ui_helpers import (
     BLUE, BORDER, DANGER, GRAD_BG, GREEN, INDIGO, ORANGE, PURPLE, TEXT_1,
-    TEXT_2, TEXT_3, card, chip_button, divider, icon_box, progress_bar,
-    progress_bar_row, section_title, stat_card,
+    TEXT_2, TEXT_3, build_bar_chart, build_pie_chart, card, chip_button,
+    divider, icon_box, pie_legend, progress_bar, progress_bar_row,
+    section_title, stat_card,
 )
 
 
@@ -97,8 +98,11 @@ class ExpenseTrackerView:
         s_goal = settings.savings_goal
         s_pct  = min(round(balance / s_goal * 100) if s_goal > 0 else 0, 100)
 
-        # weekly totals (last 7 days shown as bar chart simulation)
-        week_data = self._weekly_data(all_expenses)
+        # monthly totals (last 6 months for bar chart)
+        monthly_data = self._monthly_data(all_expenses, cur)
+        
+        # daily totals (last 7 days for bar chart)
+        daily_data = self._daily_data(all_expenses, cur)
 
         # insights
         top_cat    = sorted_cats[0] if sorted_cats else None
@@ -120,7 +124,10 @@ class ExpenseTrackerView:
                         self._savings_goal(balance, s_goal, s_pct, cur),
                     ),
                     self._insights_strip(top_cat, max_single, daily_avg, cur),
-                    self._weekly_chart(week_data, cur),
+                    self._two_col(
+                        self._daily_chart(daily_data, cur),
+                        self._monthly_chart(monthly_data, cur),
+                    ),
                     self._transactions_section(all_expenses, month_exps, cur),
                 ], spacing=20),
             )
@@ -242,22 +249,31 @@ class ExpenseTrackerView:
         if not sorted_cats:
             body = ft.Text("No expenses this month",
                            size=13, color=TEXT_3, italic=True)
-        else:
-            rows = []
-            for cat, amt in sorted_cats[:7]:
-                pct   = round(amt / total_spent * 100) if total_spent > 0 else 0
-                color = CATEGORY_COLORS.get(cat, INDIGO)
-                label = CATEGORIES.get(cat, cat)
-                rows.append(progress_bar_row(
-                    f"{label}",
-                    f"{cur}{amt:,.0f} ({pct}%)",
-                    pct, color,
-                ))
-            body = ft.Column(rows, spacing=12)
+            return card(ft.Column([
+                section_title("By Category", ft.Icons.DONUT_SMALL),
+                body,
+            ], spacing=14))
+
+        # Build pie data
+        pie_data = [
+            (
+                CATEGORIES.get(cat, cat),
+                amt,
+                CATEGORY_COLORS.get(cat, INDIGO),
+            )
+            for cat, amt in sorted_cats[:7]
+        ]
 
         return card(ft.Column([
             section_title("By Category", ft.Icons.DONUT_SMALL),
-            body,
+            ft.Row([
+                build_pie_chart(pie_data, size=150),
+                ft.Container(width=12),
+                ft.Container(
+                    content=pie_legend(pie_data, currency=cur),
+                    expand=True,
+                ),
+            ], vertical_alignment=ft.CrossAxisAlignment.START),
         ], spacing=14))
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -320,37 +336,33 @@ class ExpenseTrackerView:
 
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _weekly_chart(self, week_data: list[tuple[str, float]], cur) -> ft.Container:
-        """Simulate a bar chart with Container width proportional to value."""
-        if not week_data:
-            return ft.Container()
-
-        max_val = max(v for _, v in week_data) or 1
-
-        bars = []
-        for label, val in week_data:
-            pct   = (val / max_val) * 100
-            bar   = ft.Column([
-                ft.Container(
-                    height=max(4, round(pct * 0.8)),
-                    width=32,
-                    border_radius=ft.BorderRadius.only(top_left=5, top_right=5),
-                    bgcolor=BLUE if val == max_val else
-                            ft.Colors.with_opacity(0.45, BLUE),
-                    tooltip=f"{cur}{val:,.0f}",
-                ),
-                ft.Text(label, size=10, color=TEXT_3,
-                        text_align=ft.TextAlign.CENTER),
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-               spacing=4)
-            bars.append(bar)
-
+    def _daily_chart(self, daily_data: list[tuple[str, float]], cur) -> ft.Container:
+        """Canvas-drawn bar chart showing last 7 days of spending."""
         return card(ft.Column([
-            section_title("Last 7 Days", ft.Icons.BAR_CHART),
-            ft.Row(
-                bars,
-                alignment=ft.MainAxisAlignment.SPACE_AROUND,
-                vertical_alignment=ft.CrossAxisAlignment.END,
+            section_title("Daily Spending", ft.Icons.BAR_CHART),
+            build_bar_chart(
+                daily_data,
+                bar_color=ft.Colors.with_opacity(0.45, BLUE),
+                highlight_color=BLUE,
+                width=300,
+                height=180,
+                currency=cur,
+            ),
+        ], spacing=14))
+
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _monthly_chart(self, monthly_data: list[tuple[str, float]], cur) -> ft.Container:
+        """Canvas-drawn bar chart showing last 6 months of spending."""
+        return card(ft.Column([
+            section_title("Monthly Spending", ft.Icons.BAR_CHART),
+            build_bar_chart(
+                monthly_data,
+                bar_color=ft.Colors.with_opacity(0.45, BLUE),
+                highlight_color=BLUE,
+                width=500,
+                height=180,
+                currency=cur,
             ),
         ], spacing=14))
 
@@ -504,7 +516,7 @@ class ExpenseTrackerView:
     # Data helpers
     # ═════════════════════════════════════════════════════════════════════════
 
-    def _weekly_data(self, all_exps: list[Expense]) -> list[tuple[str, float]]:
+    def _daily_data(self, all_exps: list[Expense], cur: str) -> list[tuple[str, float]]:
         """Return (weekday-label, total-spent) for the last 7 calendar days."""
         from datetime import timedelta
         today = date.today()
@@ -517,6 +529,24 @@ class ExpenseTrackerView:
                 if e.date == d_str and e.type == "expense"
             )
             result.append((d.strftime("%a"), total))
+        return result
+
+    def _monthly_data(self, all_exps: list[Expense], cur: str) -> list[tuple[str, float]]:
+        """Return (month-label, total-spent) for the last 6 months."""
+        result = []
+        for i in range(5, -1, -1):
+            m = self._month - i
+            y = self._year
+            while m <= 0:
+                m += 12
+                y -= 1
+            ms = Store.get_month_str(y, m)
+            total = sum(
+                e.amount for e in all_exps
+                if e.date.startswith(ms) and e.type == "expense"
+            )
+            label = datetime(y, m, 1).strftime("%b")
+            result.append((label, total))
         return result
 
     # ═════════════════════════════════════════════════════════════════════════
@@ -535,9 +565,10 @@ class ExpenseTrackerView:
         with open(filename, "w", encoding="utf-8", newline="") as fh:
             fh.write(csv_str)
 
-        self.page.snack_bar = ft.SnackBar(
+        sb = ft.SnackBar(
             content=ft.Text(f"✅ Exported to {filename}", color="#F0F6FF"),
             bgcolor="#161B26",
         )
-        self.page.snack_bar.open = True
+        self.page.overlay.append(sb)
+        sb.open = True
         self.page.update()

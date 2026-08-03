@@ -1,10 +1,12 @@
-config/firebase_key.json
 
-# Byte-compiled / optimized / DLL files
+#Stuff we should ignore for the sake of safety
+config/firebase_key.json
+.env
+
+## Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyc
 
 # Virtual environments
 .venv/
@@ -18,7 +20,6 @@ env/
 .env.*.local
 
 # Local database & runtime data storage
-data/
 studentsync_backend.db
 studentsync_backend.db-journal
 studentsync_data.json

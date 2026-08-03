@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+
 from datetime import date
 from typing import Optional
 
@@ -8,6 +8,7 @@ from expenses.models import AppSettings, Expense
 from app.db import SessionLocal
 from app.repositories import ExpenseRepository
 from authentication.session import Session
+
 
 
 class Store:
@@ -22,17 +23,11 @@ class Store:
 
     @staticmethod
     def get_settings() -> AppSettings:
-        # In a real app this would query a Settings repository. 
-        # Using default AppSettings for now as it mirrors earlier JSON defaults.
-        return AppSettings(
-            currency="₹",
-            budget_monthly=5000,
-            savings_goal=2000
-        )
+
 
     @staticmethod
     def save_settings(s: AppSettings) -> None:
-        pass
+
 
     @staticmethod
     def update_settings(**kwargs) -> AppSettings:
@@ -45,28 +40,7 @@ class Store:
     # ── Expenses ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def _to_dataclass(db_exp) -> Expense:
-        return Expense(
-            id=db_exp.id,
-            date=db_exp.date,
-            type=db_exp.type,
-            category=db_exp.category,
-            description=db_exp.description,
-            amount=db_exp.amount,
-            notes="",
-            recurring=db_exp.recurring
-        )
 
-    @staticmethod
-    def get_expenses() -> list[Expense]:
-        db = SessionLocal()
-        try:
-            repo = ExpenseRepository(db, Store._get_user_id())
-            db_expenses = repo.get_all()
-            # Return newest first
-            return [Store._to_dataclass(e) for e in reversed(db_expenses)]
-        finally:
-            db.close()
 
     @staticmethod
     def add_expense(exp: Expense) -> Expense:

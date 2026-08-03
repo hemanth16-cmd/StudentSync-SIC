@@ -488,9 +488,11 @@ def find_available_port(
 
 if __name__ == "__main__":
 
-    port = find_available_port(
-        default_port=8551
-    )
+    import os
+
+    # Use Render's assigned PORT in deployment,
+    # otherwise use 8551 for local development
+    port = int(os.environ.get("PORT", 8551))
 
     print(
         f"\n[StudentSync] Flet Frontend is running on port {port}"

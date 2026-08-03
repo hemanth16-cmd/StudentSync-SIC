@@ -1,6 +1,22 @@
-import bcrypt as _bcrypt
-from app.db import SessionLocal
-from app.repositories import UserRepository
+
+import os
+import requests
+from dotenv import load_dotenv
+
+try:
+    from firebase_admin import auth
+    from firebase_admin._auth_utils import EmailAlreadyExistsError
+    from authentication.firebase_auth import (
+        initialize_firebase,
+        get_db,
+    )
+except ImportError:
+    auth = None
+    EmailAlreadyExistsError = Exception
+    initialize_firebase = lambda: None
+    get_db = lambda: None
+
+>>>>>>> 8da3437 (Fix authentication and attendance integration)
 from authentication.models import User
 from authentication.session import Session
 from authentication.validators import validate_email, validate_password, validate_name

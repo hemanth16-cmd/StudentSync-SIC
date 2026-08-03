@@ -67,6 +67,8 @@ class AuthService:
 
             print("[FIRESTORE] User document written successfully!")
 
+            Session.login(user)
+
             return user
 
         except EmailAlreadyExistsError:
@@ -123,3 +125,27 @@ class AuthService:
         Session.login(user)
 
         return user
+
+    @staticmethod
+    def logout():
+        """
+        Logs out the currently authenticated user.
+        """
+        Session.logout()
+
+
+    @staticmethod
+    def current_user():
+        """
+        Returns the currently logged-in user,
+        or None if no user is logged in.
+        """
+        return Session.current_user()
+
+
+    @staticmethod
+    def is_logged_in():
+        """
+        Returns True if a user is currently logged in.
+        """
+        return Session.is_logged_in()

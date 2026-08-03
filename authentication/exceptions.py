@@ -3,21 +3,21 @@ class AuthenticationError(Exception):
     pass
 
 
-class InvalidEmailError(AuthenticationError):
+class ValidationError(AuthenticationError):
     pass
 
 
-class WeakPasswordError(AuthenticationError):
+class UserAlreadyExists(AuthenticationError):
     pass
 
 
-class UserAlreadyExistsError(AuthenticationError):
+class InvalidCredentials(AuthenticationError):
     pass
 
 
-class InvalidCredentialsError(AuthenticationError):
+class UserNotFound(AuthenticationError):
     pass
 
 
-class UserNotFoundError(AuthenticationError):
+class FirebaseError(AuthenticationError):
     pass

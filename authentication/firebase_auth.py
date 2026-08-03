@@ -1,35 +1,36 @@
-import os
-import requests
-from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
 
-load_dotenv()
-
-API_KEY = os.getenv("FIREBASE_API_KEY")
-
-BASE_URL = "https://identitytoolkit.googleapis.com/v1"
+firebase_app = None
+db = None
 
 
-def signup(email: str, password: str):
-    url = f"{BASE_URL}/accounts:signUp?key={API_KEY}"
+def initialize_firebase():
+    global firebase_app
+    global db
 
-    payload = {
-        "email": email,
-        "password": password,
-        "returnSecureToken": True
-    }
+    if firebase_app is None:
 
-    response = requests.post(url, json=payload)
-    return response.json()
+        cred = credentials.Certificate("config/firebase_key.json")
+
+        firebase_app = firebase_admin.initialize_app(cred)
+
+        db = firestore.client()
+
+        print("Firebase initialized successfully!")
+
+    return db
 
 
-def login(email: str, password: str):
-    url = f"{BASE_URL}/accounts:signInWithPassword?key={API_KEY}"
+def get_db():
+    global db
 
-    payload = {
-        "email": email,
-        "password": password,
-        "returnSecureToken": True
-    }
+    if db is None:
+        initialize_firebase()
 
-    response = requests.post(url, json=payload)
-    return response.json()
+    return db
+
+
+# Initialize automatically when this module is imported
+initialize_firebase()

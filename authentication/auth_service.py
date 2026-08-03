@@ -1,15 +1,29 @@
 import os
 import requests
+
 from dotenv import load_dotenv
+
+from firebase_admin import auth
+from firebase_admin._auth_utils import EmailAlreadyExistsError
+
+from authentication.firebase_auth import (
+    initialize_firebase,
+    get_db,
+)
+
+from authentication.models import User
+from authentication.session import Session
 
 from authentication.validators import (
     validate_email,
     validate_password,
+    validate_name,
 )
 
 from authentication.exceptions import (
-    UserAlreadyExistsError,
-    InvalidCredentialsError,
+    UserAlreadyExists,
+    InvalidCredentials,
+    FirebaseError,
 )
 
 load_dotenv()
@@ -19,58 +33,93 @@ API_KEY = os.getenv("FIREBASE_API_KEY")
 
 class AuthService:
 
-    SIGNUP_URL = (
-        "https://identitytoolkit.googleapis.com/v1/accounts:signUp"
-    )
-
-    LOGIN_URL = (
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
-    )
-
     @staticmethod
-    def signup(email, password):
+    def signup(name, email, password):
 
-        email = validate_email(email)
-        password = validate_password(password)
+        initialize_firebase()
 
-        payload = {
-            "email": email,
-            "password": password,
-            "returnSecureToken": True
-        }
+        validate_name(name)
+        validate_email(email)
+        validate_password(password)
 
-        response = requests.post(
-            f"{AuthService.SIGNUP_URL}?key={API_KEY}",
-            json=payload
-        )
+        try:
+            firebase_user = auth.create_user(
+                email=email,
+                password=password,
+                display_name=name,
+            )
 
-        if response.status_code == 200:
-            return response.json()
+            print(f"[AUTH] Created Firebase user: {firebase_user.uid}")
 
-        error = response.json()["error"]["message"]
+            user = User(
+                uid=firebase_user.uid,
+                name=name,
+                email=email,
+            )
 
-        if error == "EMAIL_EXISTS":
-            raise UserAlreadyExistsError("Email already registered.")
+            db = get_db()
 
-        raise Exception(error)
+            print("[FIRESTORE] Writing user document...")
+
+            db.collection("users").document(user.uid).set(
+                user.to_dict()
+            )
+
+            print("[FIRESTORE] User document written successfully!")
+
+            return user
+
+        except EmailAlreadyExistsError:
+            raise UserAlreadyExists(
+                "This email is already registered."
+            )
+
+        except Exception as e:
+            raise FirebaseError(str(e))
 
     @staticmethod
     def login(email, password):
 
+        initialize_firebase()
+
+        url = (
+            "https://identitytoolkit.googleapis.com/v1/"
+            f"accounts:signInWithPassword?key={API_KEY}"
+        )
+
         payload = {
             "email": email,
             "password": password,
-            "returnSecureToken": True
+            "returnSecureToken": True,
         }
 
-        response = requests.post(
-            f"{AuthService.LOGIN_URL}?key={API_KEY}",
-            json=payload
-        )
+        response = requests.post(url, json=payload)
 
-        if response.status_code == 200:
-            return response.json()
+        if response.status_code != 200:
+            raise InvalidCredentials(
+                "Incorrect email or password."
+            )
 
-        raise InvalidCredentialsError(
-            response.json()["error"]["message"]
-        )
+        uid = response.json()["localId"]
+
+        print(f"[AUTH] Logged in UID: {uid}")
+
+        db = get_db()
+
+        doc = db.collection("users").document(uid).get()
+
+        print(f"[FIRESTORE] Document exists: {doc.exists}")
+
+        if doc.exists:
+            print(f"[FIRESTORE] Document data: {doc.to_dict()}")
+
+        if not doc.exists:
+            raise FirebaseError(
+                "User exists in Authentication but not Firestore."
+            )
+
+        user = User.from_dict(doc.to_dict())
+
+        Session.login(user)
+
+        return user

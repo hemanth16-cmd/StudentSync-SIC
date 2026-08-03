@@ -1,3 +1,10 @@
+<<<<<<< HEAD
+config/firebase_key.json
+
+__pycache__/
+*.pyc
+.env
+=======
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -30,3 +37,4 @@ fix_padding.py
 .idea/
 .DS_Store
 Thumbs.db
+>>>>>>> origin/develop

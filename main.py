@@ -1,8 +1,9 @@
 """
+
 StudentSync — Premium Student Productivity Platform
 Main Application Entry Point (Python Flet 0.86+)
 """
-
+from expenses.expense_tracker import ExpenseTrackerView
 import os
 import socket
 import flet as ft
@@ -108,36 +109,11 @@ def _dashboard_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
     )
 
 
-def _expenses_placeholder(page: ft.Page, dark_mode: bool = True) -> ft.Control:
-    """Expense Tracker placeholder — owned by teammate in features/expense_tracker."""
-    return ft.Column(
-        [
-            create_section_header("Expenses", "Financial & Budget Manager", dark_mode=dark_mode),
-            create_card(
-                content=ft.Column(
-                    [
-                        ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=52, color=AppColors.ORANGE),
-                        ft.Text("Expense Tracker", size=18, weight=ft.FontWeight.BOLD,
-                                color=get_text_primary(dark_mode)),
-                        ft.Text(
-                            "This module is owned by a teammate.\nSee  features/expense_tracker/",
-                            size=13, color=get_text_secondary(dark_mode),
-                            text_align=ft.TextAlign.CENTER,
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=12,
-                ),
-                padding=48, dark_mode=dark_mode,
-            ),
-        ],
-        spacing=16, expand=True,
-    )
-
+def _expenses_view(page: ft.Page, dark_mode: bool = True):
+    return ExpenseTrackerView(page).build()
 
 Router.register("dashboard", _dashboard_view)
-Router.register("expenses",  _expenses_placeholder)
+Router.register("expenses", _expenses_view)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -238,3 +214,4 @@ if __name__ == "__main__":
     print(f"\n[StudentSync] Flet Frontend is running on port {port}")
     print(f"[StudentSync] Access URL: http://localhost:{port}\n")
     ft.run(main, port=port, view=ft.AppView.WEB_BROWSER)
+

@@ -1,7 +1,7 @@
 import flet as ft
 
 
-def attendance_view():
+def attendance_view(page):
     return ft.Column(
         controls=[
             ft.Text(

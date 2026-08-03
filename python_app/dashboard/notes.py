@@ -1,7 +1,7 @@
 import flet as ft
 
 
-def notes_view():
+def notes_view(page):
     return ft.Column(
         controls=[
             ft.Text(

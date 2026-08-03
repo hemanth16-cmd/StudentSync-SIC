@@ -1,7 +1,7 @@
 import flet as ft
 
 
-def study_planner_view():
+def study_planner_view(page):
     return ft.Column(
         controls=[
             ft.Text(

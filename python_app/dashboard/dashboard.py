@@ -1,7 +1,7 @@
 import flet as ft
 
 
-def dashboard_view():
+def dashboard_view(page):
     return ft.Column(
         controls=[
             ft.Text(

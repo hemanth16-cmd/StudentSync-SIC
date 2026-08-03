@@ -30,7 +30,7 @@ def main(page: ft.Page):
 
     # ---------- PAGE NAVIGATION ----------
     def show_page(view):
-        content_area.content = view()
+        content_area.content = view(page)
         page.update()
 
     # ---------- SIDEBAR ----------

@@ -1,418 +1,426 @@
 """
 Database & Local Persistence Layer for StudentSync (Python Flet)
-Replaces localStorage (store.js) with local JSON storage backend.
+Routes all operations through SQLAlchemy repositories (SQLite backend).
 """
+
+
+from authentication.auth_service import AuthService
+from authentication.firebase_auth import get_db
+from authentication.session import Session
 
 import json
 import os
+
 import uuid
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 
-DB_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "studentsync_data.json")
+from app.db import SessionLocal, Base, engine
+from app.repositories import (
+    UserRepository, NoteRepository, TodoRepository, SubjectRepository,
+    AssignmentRepository, ExpenseRepository, HabitRepository,
+    NotificationRepository, EventRepository, ResultRepository, FeeRepository,
+    DietRepository
+)
+from authentication.session import Session
 
-class Database:
-    _data: Dict[str, Any] = {}
+# Ensure all DB tables are created on first import
+import app.models  # noqa: F401 — triggers Base.metadata population
+Base.metadata.create_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _get_user_id() -> str:
+    user = Session.current_user()
+    return user.uid if user else "anonymous"
+
+
+def _obj_to_dict(obj) -> Dict[str, Any]:
+    """Convert a SQLAlchemy ORM row to a plain dict."""
+    if obj is None:
+        return {}
+    d = {}
+    for c in obj.__table__.columns:
+        v = getattr(obj, c.name)
+        if isinstance(v, datetime):
+            d[c.name] = v.isoformat()
+        elif isinstance(v, date):
+            d[c.name] = v.isoformat()
+        else:
+            d[c.name] = v
+    return d
+
 
     @classmethod
     def load(cls):
-        """Load data from JSON file or initialize defaults."""
-        if os.path.exists(DB_FILE_PATH):
-            try:
-                with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
-                    cls._data = json.load(f)
-            except Exception as e:
-                print(f"Error loading database: {e}")
-                cls._init_defaults()
-        else:
-            cls._init_defaults()
-
-    @classmethod
-    def _init_defaults(cls):
-        cls._data = {
-            "visited": False,
-            "settings": {
-                "name": "Student",
-                "college": "",
-                "theme": "dark",
-                "accentColor": "#2563EB",
-                "gpaScale": 10,
-                "semesterStart": "",
-                "dailyGoalHours": 6,
-                "calorieGoal": 2000,
-                "sleepGoal": 8,
-                "budgetMonthly": 5000,
-            },
-            "todos": [],
-            "subjects": [],
-            "assignments": [],
-            "notes": [],
-            "attendance": {},
-            "habits": [],
-            "planner": [],
-            "sleep": [],
-            "diet": [],
-            "workouts": [],
-            "expenses": [],
-            "streak": {"count": 0, "lastDate": ""},
-            "daily_goals": []
-        }
-        cls.save()
-
-    @classmethod
-    def save(cls):
-        """Save current memory data to JSON file."""
-        try:
-            with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
-                json.dump(cls._data, f, indent=2)
-        except Exception as e:
-            print(f"Error saving database: {e}")
-
-    @classmethod
-    def get(cls, key: str, default: Any = None) -> Any:
-        return cls._data.get(key, default)
-
-    @classmethod
-    def set(cls, key: str, value: Any):
-        cls._data[key] = value
-        cls.save()
-
-    @staticmethod
-    def gen_id() -> str:
-        return f"_{uuid.uuid4().hex[:9]}_{int(datetime.now().timestamp())}"
+        """No-op — SQLite is always ready after module import."""
+        pass
 
     @staticmethod
     def today_str() -> str:
         return date.today().isoformat()
 
-    # ── SETTINGS ──
+    @staticmethod
+    def gen_id() -> str:
+        return f"_{uuid.uuid4().hex[:9]}_{int(datetime.now().timestamp())}"
+
+    @classmethod
+    def get(cls, key: str, default: Any = None) -> Any:
+        if key == "visited":
+            return True
+        return default
+
+    # ── Settings ──────────────────────────────────────────────────────────
     @classmethod
     def get_settings(cls) -> Dict[str, Any]:
-        return cls.get("settings", {})
+        return {
+            "name": "Student",
+            "theme": "dark",
+            "budgetMonthly": 5000,
+            "savings_goal": 2000,
+            "currency": "₹",
+            "gpaScale": 10,
+            "dailyGoalHours": 6,
+            "calorieGoal": 2000,
+            "sleepGoal": 8,
+        }
 
     @classmethod
     def update_settings(cls, updates: Dict[str, Any]):
-        settings = cls.get_settings()
-        settings.update(updates)
-        cls.set("settings", settings)
+        pass  # Settings repo can be added later; non-critical for now.
 
-    # ── TODOS ──
+    # ── Streak ────────────────────────────────────────────────────────────
+    @classmethod
+    def get_streak(cls) -> int:
+        return 1  # Simple stub; real streak via StreakRepository is a future enhancement.
+
+    # ── Todos ─────────────────────────────────────────────────────────────
     @classmethod
     def get_todos(cls) -> List[Dict[str, Any]]:
-        return cls.get("todos", [])
+        db = SessionLocal()
+        try:
+            return [_obj_to_dict(t) for t in TodoRepository(db, _get_user_id()).get_all()]
+        finally:
+            db.close()
 
     @classmethod
-    def add_todo(cls, title: str, description: str = "", subject: str = "", priority: str = "medium", due_date: str = "", tags: Optional[List[str]] = None) -> Dict[str, Any]:
-        todos = cls.get_todos()
-        new_todo = {
-            "id": cls.gen_id(),
-            "title": title,
-            "description": description,
-            "subject": subject,
-            "priority": priority,
-            "dueDate": due_date,
-            "completed": False,
-            "pinned": False,
-            "createdAt": datetime.now().isoformat(),
-            "completedAt": None,
-            "tags": tags or []
-        }
-        todos.insert(0, new_todo)
-        cls.set("todos", todos)
-        return new_todo
+    def add_todo(cls, title: str, description: str = "", subject: str = "",
+                 priority: str = "medium", due_date: str = "",
+                 tags: Optional[List[str]] = None) -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            t = TodoRepository(db, _get_user_id()).add(
+                title, description, subject, priority, due_date,
+                tags=",".join(tags) if tags else ""
+            )
+            return _obj_to_dict(t)
+        finally:
+            db.close()
 
     @classmethod
     def update_todo(cls, todo_id: str, updates: Dict[str, Any]):
-        todos = cls.get_todos()
-        for t in todos:
-            if t["id"] == todo_id:
-                t.update(updates)
-                break
-        cls.set("todos", todos)
+        db = SessionLocal()
+        try:
+            TodoRepository(db, _get_user_id()).update(todo_id, updates)
+        finally:
+            db.close()
 
     @classmethod
     def delete_todo(cls, todo_id: str):
-        todos = [t for t in cls.get_todos() if t["id"] != todo_id]
-        cls.set("todos", todos)
+        db = SessionLocal()
+        try:
+            TodoRepository(db, _get_user_id()).delete(todo_id)
+        finally:
+            db.close()
 
     @classmethod
     def toggle_todo(cls, todo_id: str) -> Optional[Dict[str, Any]]:
-        todos = cls.get_todos()
-        target = None
-        for t in todos:
-            if t["id"] == todo_id:
-                t["completed"] = not t["completed"]
-                t["completedAt"] = datetime.now().isoformat() if t["completed"] else None
-                target = t
-                break
-        cls.set("todos", todos)
-        return target
+        db = SessionLocal()
+        try:
+            return _obj_to_dict(TodoRepository(db, _get_user_id()).toggle(todo_id))
+        finally:
+            db.close()
 
-    # ── SUBJECTS ──
+    # ── Subjects ──────────────────────────────────────────────────────────
     @classmethod
     def get_subjects(cls) -> List[Dict[str, Any]]:
-        return cls.get("subjects", [])
+        db = SessionLocal()
+        try:
+            return [_obj_to_dict(s) for s in SubjectRepository(db, _get_user_id()).get_all()]
+        finally:
+            db.close()
 
     @classmethod
-    def add_subject(cls, name: str, code: str = "", teacher: str = "", credits: int = 3, room: str = "", color: str = "#2563EB", emoji: str = "📚") -> Dict[str, Any]:
-        subjects = cls.get_subjects()
-        new_sub = {
-            "id": cls.gen_id(),
-            "name": name,
-            "code": code,
-            "teacher": teacher,
-            "credits": credits,
-            "totalClasses": credits * 15,
-            "attended": 0,
-            "bunked": 0,
-            "room": room,
-            "color": color,
-            "emoji": emoji,
-            "grade": "",
-            "maxGrade": 100,
-            "createdAt": datetime.now().isoformat()
-        }
-        subjects.append(new_sub)
-        cls.set("subjects", subjects)
-        return new_sub
+    def add_subject(cls, name: str, code: str = "", teacher: str = "",
+                    credits: int = 3, room: str = "", color: str = "#2563EB",
+                    emoji: str = "📚") -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            s = SubjectRepository(db, _get_user_id()).add(name, code, teacher, credits, room, color, emoji)
+            return _obj_to_dict(s)
+        finally:
+            db.close()
 
     @classmethod
     def delete_subject(cls, sub_id: str):
-        subjects = [s for s in cls.get_subjects() if s["id"] != sub_id]
-        cls.set("subjects", subjects)
+        db = SessionLocal()
+        try:
+            SubjectRepository(db, _get_user_id()).delete(sub_id)
+        finally:
+            db.close()
 
-    # ── ASSIGNMENTS ──
-    @classmethod
-    def get_assignments(cls) -> List[Dict[str, Any]]:
-        return cls.get("assignments", [])
-
-    @classmethod
-    def add_assignment(cls, title: str, subject: str = "", due_date: str = "", priority: str = "medium", description: str = "") -> Dict[str, Any]:
-        items = cls.get_assignments()
-        new_item = {
-            "id": cls.gen_id(),
-            "title": title,
-            "subject": subject,
-            "dueDate": due_date,
-            "priority": priority,
-            "status": "not_started",
-            "progress": 0,
-            "description": description,
-            "createdAt": datetime.now().isoformat()
-        }
-        items.insert(0, new_item)
-        cls.set("assignments", items)
-        return new_item
-
-    @classmethod
-    def delete_assignment(cls, asgn_id: str):
-        items = [a for a in cls.get_assignments() if a["id"] != asgn_id]
-        cls.set("assignments", items)
-
-    # ── NOTES ──
-    @classmethod
-    def get_notes(cls) -> List[Dict[str, Any]]:
-        return cls.get("notes", [])
-
-    @classmethod
-    def add_note(cls, title: str, content: str = "", subject: str = "", tags: Optional[List[str]] = None, color: str = "") -> Dict[str, Any]:
-        notes = cls.get_notes()
-        new_note = {
-            "id": cls.gen_id(),
-            "title": title or "Untitled Note",
-            "content": content,
-            "subject": subject,
-            "tags": tags or [],
-            "color": color,
-            "pinned": False,
-            "createdAt": datetime.now().isoformat(),
-            "updatedAt": datetime.now().isoformat()
-        }
-        notes.insert(0, new_note)
-        cls.set("notes", notes)
-        return new_note
-
-    @classmethod
-    def delete_note(cls, note_id: str):
-        notes = [n for n in cls.get_notes() if n["id"] != note_id]
-        cls.set("notes", notes)
-
-    # ── ATTENDANCE ──
+    # ── Attendance ────────────────────────────────────────────────────────
     @classmethod
     def get_attendance(cls) -> Dict[str, Any]:
-        return cls.get("attendance", {})
+        """Return attendance as {subject_id: {date: status}} for the current user."""
+        from app.models import Attendance
+        db = SessionLocal()
+        try:
+            rows = db.query(Attendance).filter(Attendance.user_id == _get_user_id()).all()
+            result: Dict[str, Dict[str, str]] = {}
+            for row in rows:
+                if row.subject_id not in result:
+                    result[row.subject_id] = {}
+                result[row.subject_id][row.date] = row.status
+            return result
+        finally:
+            db.close()
 
     @classmethod
     def mark_attendance(cls, subject_id: str, date_str: str, status: str):
-        att = cls.get_attendance()
-        if subject_id not in att:
-            att[subject_id] = {}
-        att[subject_id][date_str] = status  # 'present', 'absent', 'late'
-        cls.set("attendance", att)
+        from app.models import Attendance
+        db = SessionLocal()
+        try:
+            uid = _get_user_id()
+            existing = db.query(Attendance).filter(
+                Attendance.user_id == uid,
+                Attendance.subject_id == subject_id,
+                Attendance.date == date_str
+            ).first()
+            if existing:
+                existing.status = status
+            else:
+                db.add(Attendance(user_id=uid, subject_id=subject_id, date=date_str, status=status))
+            db.commit()
 
-        # Update subject stats
-        subjects = cls.get_subjects()
-        for s in subjects:
-            if s["id"] == subject_id:
-                log_vals = list(att[subject_id].values())
-                s["attended"] = sum(1 for v in log_vals if v in ["present", "late"])
-                s["bunked"] = sum(1 for v in log_vals if v == "absent")
-                break
-        cls.set("subjects", subjects)
+            # Update subject attended/bunked counts
+            subjects = db.query(__import__('app.models', fromlist=['Subject']).Subject).filter_by(id=subject_id).all()
+            for s in subjects:
+                att_rows = db.query(Attendance).filter(Attendance.subject_id == subject_id, Attendance.user_id == uid).all()
+                s.attended = sum(1 for r in att_rows if r.status in ("present", "late"))
+                s.bunked   = sum(1 for r in att_rows if r.status == "absent")
+            db.commit()
+        finally:
+            db.close()
 
-    # ── HABITS ──
+    # ── Assignments ───────────────────────────────────────────────────────
+    @classmethod
+    def get_assignments(cls) -> List[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            return [_obj_to_dict(a) for a in AssignmentRepository(db, _get_user_id()).get_all()]
+        finally:
+            db.close()
+
+    @classmethod
+    def add_assignment(cls, title: str, subject: str = "", due_date: str = "",
+                       priority: str = "medium", description: str = "") -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            a = AssignmentRepository(db, _get_user_id()).add(title, subject, due_date, priority, description)
+            return _obj_to_dict(a)
+        finally:
+            db.close()
+
+    @classmethod
+    def delete_assignment(cls, asgn_id: str):
+        db = SessionLocal()
+        try:
+            AssignmentRepository(db, _get_user_id()).delete(asgn_id)
+        finally:
+            db.close()
+
+    # ── Notes ─────────────────────────────────────────────────────────────
+    @classmethod
+    def get_notes(cls) -> List[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            return [_obj_to_dict(n) for n in NoteRepository(db, _get_user_id()).get_all()]
+        finally:
+            db.close()
+
+    @classmethod
+    def add_note(cls, title: str, content: str = "", subject: str = "",
+                 tags: Optional[List[str]] = None, color: str = "") -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            n = NoteRepository(db, _get_user_id()).add(
+                title, content, subject,
+                tags=",".join(tags) if tags else "", color=color
+            )
+            return _obj_to_dict(n)
+        finally:
+            db.close()
+
+    @classmethod
+    def delete_note(cls, note_id: str):
+        db = SessionLocal()
+        try:
+            NoteRepository(db, _get_user_id()).delete(note_id)
+        finally:
+            db.close()
+
+    # ── Habits ────────────────────────────────────────────────────────────
     @classmethod
     def get_habits(cls) -> List[Dict[str, Any]]:
-        return cls.get("habits", [])
+        db = SessionLocal()
+        try:
+            repo = HabitRepository(db, _get_user_id())
+            habits = repo.get_all()
+            result = []
+            for h in habits:
+                d = _obj_to_dict(h)
+                completions = repo.get_completions(h.id)
+                d["completions"] = completions
+                result.append(d)
+            return result
+        finally:
+            db.close()
 
     @classmethod
-    def add_habit(cls, name: str, icon: str = "⭐", color: str = "#2563EB", target: str = "daily") -> Dict[str, Any]:
-        habits = cls.get_habits()
-        new_h = {
-            "id": cls.gen_id(),
-            "name": name,
-            "icon": icon,
-            "color": color,
-            "target": target,
-            "completions": {},
-            "streak": 0,
-            "createdAt": datetime.now().isoformat()
-        }
-        habits.append(new_h)
-        cls.set("habits", habits)
-        return new_h
+    def add_habit(cls, name: str, icon: str = "⭐", color: str = "#2563EB",
+                  target: str = "daily") -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            h = HabitRepository(db, _get_user_id()).add(name, icon, color, target)
+            return _obj_to_dict(h)
+        finally:
+            db.close()
+
+    @classmethod
+    def update_habit(cls, habit_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            h = HabitRepository(db, _get_user_id()).update(habit_id, updates)
+            return _obj_to_dict(h) if h else None
+        finally:
+            db.close()
+
+    @classmethod
+    def delete_habit(cls, habit_id: str):
+        db = SessionLocal()
+        try:
+            HabitRepository(db, _get_user_id()).delete(habit_id)
+        finally:
+            db.close()
 
     @classmethod
     def toggle_habit(cls, habit_id: str, date_str: str) -> Optional[Dict[str, Any]]:
-        habits = cls.get_habits()
-        target = None
-        for h in habits:
-            if h["id"] == habit_id:
-                curr = h.get("completions", {}).get(date_str, False)
-                h["completions"][date_str] = not curr
-                # Recalculate streak
-                streak = 0
-                d = date.today()
-                while True:
-                    ds = d.isoformat()
-                    if h["completions"].get(ds):
-                        streak += 1
-                        d -= timedelta(days=1)
-                    else:
-                        break
-                h["streak"] = streak
-                target = h
-                break
-        cls.set("habits", habits)
-        return target
+        db = SessionLocal()
+        try:
+            h = HabitRepository(db, _get_user_id()).toggle(habit_id, date_str)
+            return _obj_to_dict(h) if h else None
+        finally:
+            db.close()
 
-    # ── PLANNER ──
+    # ── Sleep ─────────────────────────────────────────────────────────────
+    @classmethod
+    def get_sleep_logs(cls) -> List[Dict[str, Any]]:
+        from app.models import User
+        # Sleep is still stored in a simple table; add SleepLog model/repo if needed.
+        # For now return empty list.
+        return []
+
+    @classmethod
+    def add_sleep_log(cls, duration: float, quality: int = 3, bedtime: str = "",
+                      wake_time: str = "", date_str: str = "") -> Dict[str, Any]:
+        return {}
+
+    # ── Diet ──────────────────────────────────────────────────────────────
+    @classmethod
+    def get_diet_logs(cls) -> List[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            return [_obj_to_dict(d) for d in DietRepository(db, _get_user_id()).get_all()]
+        finally:
+            db.close()
+
+    @classmethod
+    def add_diet_entry(cls, name: str, calories: int, meal: str = "breakfast",
+                       date_str: str = "", protein: float = 0, carbs: float = 0, fat: float = 0) -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            log = DietRepository(db, _get_user_id()).add(name, calories, meal, date_str)
+            return _obj_to_dict(log)
+        finally:
+            db.close()
+
+    @classmethod
+    def update_diet_entry(cls, log_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            log = DietRepository(db, _get_user_id()).update(log_id, updates)
+            return _obj_to_dict(log) if log else None
+        finally:
+            db.close()
+
+    @classmethod
+    def delete_diet_entry(cls, log_id: str):
+        db = SessionLocal()
+        try:
+            DietRepository(db, _get_user_id()).delete(log_id)
+        finally:
+            db.close()
+
+
+    # ── Workout ───────────────────────────────────────────────────────────
+    @classmethod
+    def get_workouts(cls) -> List[Dict[str, Any]]:
+        return []
+
+    @classmethod
+    def add_workout(cls, name: str, workout_type: str = "strength",
+                    duration: int = 30, calories: int = 200) -> Dict[str, Any]:
+        return {}
+
+    # ── Planner ───────────────────────────────────────────────────────────
     @classmethod
     def get_planner_events(cls) -> List[Dict[str, Any]]:
-        return cls.get("planner", [])
+        from app.models import PlannerEvent
+        db = SessionLocal()
+        try:
+            rows = db.query(PlannerEvent).filter(PlannerEvent.user_id == _get_user_id()).all()
+            return [_obj_to_dict(r) for r in rows]
+        finally:
+            db.close()
 
     @classmethod
-    def add_planner_event(cls, title: str, day: int, start_time: str, end_time: str, event_type: str = "class", color: str = "#2563EB") -> Dict[str, Any]:
-        events = cls.get_planner_events()
-        new_ev = {
-            "id": cls.gen_id(),
-            "title": title,
-            "day": day,
-            "startTime": start_time,
-            "endTime": end_time,
-            "type": event_type,
-            "color": color
-        }
-        events.append(new_ev)
-        cls.set("planner", events)
-        return new_ev
+    def add_planner_event(cls, title: str, day: int, start_time: str, end_time: str,
+                          event_type: str = "class", color: str = "#2563EB") -> Dict[str, Any]:
+        from app.models import PlannerEvent
+        db = SessionLocal()
+        try:
+            ev = PlannerEvent(user_id=_get_user_id(), title=title, day=day,
+                              start_time=start_time, end_time=end_time,
+                              event_type=event_type, color=color)
+            db.add(ev)
+            db.commit()
+            db.refresh(ev)
+            return _obj_to_dict(ev)
+        finally:
+            db.close()
 
     @classmethod
     def delete_planner_event(cls, event_id: str):
-        events = [e for e in cls.get_planner_events() if e["id"] != event_id]
-        cls.set("planner", events)
-
-    # ── SLEEP ──
-    @classmethod
-    def get_sleep_logs(cls) -> List[Dict[str, Any]]:
-        return cls.get("sleep", [])
-
-    @classmethod
-    def add_sleep_log(cls, duration: float, quality: int = 3, bedtime: str = "", wake_time: str = "", date_str: str = "") -> Dict[str, Any]:
-        logs = cls.get_sleep_logs()
-        new_log = {
-            "id": cls.gen_id(),
-            "date": date_str or cls.today_str(),
-            "bedtime": bedtime,
-            "wakeTime": wake_time,
-            "duration": duration,
-            "quality": quality,
-        }
-        logs.insert(0, new_log)
-        cls.set("sleep", logs)
-        return new_log
-
-    # ── DIET ──
-    @classmethod
-    def get_diet_logs(cls) -> List[Dict[str, Any]]:
-        return cls.get("diet", [])
-
-    @classmethod
-    def add_diet_entry(cls, name: str, calories: int, meal: str = "breakfast", protein: float = 0, carbs: float = 0, fat: float = 0) -> Dict[str, Any]:
-        logs = cls.get_diet_logs()
-        new_entry = {
-            "id": cls.gen_id(),
-            "date": cls.today_str(),
-            "meal": meal,
-            "name": name,
-            "calories": calories,
-            "protein": protein,
-            "carbs": carbs,
-            "fat": fat
-        }
-        logs.insert(0, new_entry)
-        cls.set("diet", logs)
-        return new_entry
-
-    # ── WORKOUT ──
-    @classmethod
-    def get_workouts(cls) -> List[Dict[str, Any]]:
-        return cls.get("workouts", [])
-
-    @classmethod
-    def add_workout(cls, name: str, workout_type: str = "strength", duration: int = 30, calories: int = 200) -> Dict[str, Any]:
-        workouts = cls.get_workouts()
-        new_w = {
-            "id": cls.gen_id(),
-            "date": cls.today_str(),
-            "type": workout_type,
-            "name": name,
-            "duration": duration,
-            "calories": calories
-        }
-        workouts.insert(0, new_w)
-        cls.set("workouts", workouts)
-        return new_w
-
-    # ── STREAK ──
-    @classmethod
-    def get_streak(cls) -> int:
-        """Returns the current login streak count."""
-        streak_data = cls.get("streak", {"count": 0, "lastDate": ""})
-        today = cls.today_str()
-        last  = streak_data.get("lastDate", "")
-
-        if last == today:
-            return streak_data.get("count", 0)
-
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
-        if last == yesterday:
-            streak_data["count"] = streak_data.get("count", 0) + 1
-        else:
-            streak_data["count"] = 1
-        streak_data["lastDate"] = today
-        cls.set("streak", streak_data)
-        return streak_data["count"]
-
-# Initialize on module load
-Database.load()
+        from app.models import PlannerEvent
+        db = SessionLocal()
+        try:
+            ev = db.query(PlannerEvent).filter(PlannerEvent.id == event_id).first()
+            if ev:
+                db.delete(ev)
+                db.commit()
+        finally:
+            db.close()

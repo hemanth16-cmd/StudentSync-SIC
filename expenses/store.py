@@ -7,40 +7,12 @@ Data is saved to:  <cwd>/data/expenses_data.json
 """
 from __future__ import annotations
 
-import json
-import os
+from app.database import Database
+
 from datetime import date
 from typing import Optional
 
 from expenses.models import AppSettings, Expense
-
-# ── File path ───────────────────────────────────────────────────────────────
-
-_DATA_DIR  = os.path.join(os.path.dirname(__file__), "..", "data")
-_DATA_FILE = os.path.join(_DATA_DIR, "expenses_data.json")
-
-
-def _ensure_dir() -> None:
-    os.makedirs(_DATA_DIR, exist_ok=True)
-
-
-def _load_raw() -> dict:
-    """Load raw JSON from disk; return empty dict on any error."""
-    _ensure_dir()
-    if not os.path.exists(_DATA_FILE):
-        return {}
-    try:
-        with open(_DATA_FILE, "r", encoding="utf-8") as fh:
-            return json.load(fh)
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
-def _save_raw(data: dict) -> None:
-    _ensure_dir()
-    with open(_DATA_FILE, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-
 
 # ── Public API ───────────────────────────────────────────────────────────────
 
@@ -51,14 +23,16 @@ class Store:
 
     @staticmethod
     def get_settings() -> AppSettings:
-        raw = _load_raw()
-        return AppSettings.from_dict(raw.get("settings", {}))
+        return AppSettings.from_dict(
+            Database.get("expense_settings", {})
+        )
 
     @staticmethod
     def save_settings(s: AppSettings) -> None:
-        raw = _load_raw()
-        raw["settings"] = s.to_dict()
-        _save_raw(raw)
+        Database.set(
+            "expense_settings",
+            s.to_dict()
+    )       
 
     @staticmethod
     def update_settings(**kwargs) -> AppSettings:
@@ -73,17 +47,21 @@ class Store:
 
     @staticmethod
     def get_expenses() -> list[Expense]:
-        raw = _load_raw()
-        items = raw.get("expenses", [])
-        # newest first (mirrors JS store behaviour)
-        return [Expense.from_dict(d) for d in reversed(items)]
+        items = Database.get("expenses", [])
+        return [
+            Expense.from_dict(d)
+            for d in reversed(items)
+        ]
 
     @staticmethod
     def _save_expenses(expenses: list[Expense]) -> None:
-        raw = _load_raw()
-        # store oldest-first on disk for clean diffs
-        raw["expenses"] = [e.to_dict() for e in reversed(expenses)]
-        _save_raw(raw)
+        Database.set(
+            "expenses",
+            [
+                e.to_dict()
+                for e in reversed(expenses)
+            ]
+        )
 
     @staticmethod
     def add_expense(exp: Expense) -> Expense:

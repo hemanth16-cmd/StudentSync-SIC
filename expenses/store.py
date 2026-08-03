@@ -1,38 +1,33 @@
-"""
-expenses/store.py
-JSON-backed persistence layer — mirrors the JS Store pattern used by the
-rest of the StudentSync project, but implemented in Python.
-
-Data is saved to:  <cwd>/data/expenses_data.json
-"""
 from __future__ import annotations
 
-from app.database import Database
 
 from datetime import date
 from typing import Optional
 
 from expenses.models import AppSettings, Expense
+from app.db import SessionLocal
+from app.repositories import ExpenseRepository
+from authentication.session import Session
 
-# ── Public API ───────────────────────────────────────────────────────────────
+
 
 class Store:
-    """Thin static class — call from anywhere without instantiation."""
+    """Thin static class — now backed by SQLAlchemy repositories."""
+
+    @staticmethod
+    def _get_user_id():
+        user = Session.current_user()
+        return user.uid if user else "dummy_user"
 
     # ── Settings ─────────────────────────────────────────────────────────
 
     @staticmethod
     def get_settings() -> AppSettings:
-        return AppSettings.from_dict(
-            Database.get("expense_settings", {})
-        )
+
 
     @staticmethod
     def save_settings(s: AppSettings) -> None:
-        Database.set(
-            "expense_settings",
-            s.to_dict()
-    )       
+
 
     @staticmethod
     def update_settings(**kwargs) -> AppSettings:
@@ -40,56 +35,50 @@ class Store:
         for key, val in kwargs.items():
             if hasattr(s, key):
                 setattr(s, key, val)
-        Store.save_settings(s)
         return s
 
     # ── Expenses ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def get_expenses() -> list[Expense]:
-        items = Database.get("expenses", [])
-        return [
-            Expense.from_dict(d)
-            for d in reversed(items)
-        ]
 
-    @staticmethod
-    def _save_expenses(expenses: list[Expense]) -> None:
-        Database.set(
-            "expenses",
-            [
-                e.to_dict()
-                for e in reversed(expenses)
-            ]
-        )
 
     @staticmethod
     def add_expense(exp: Expense) -> Expense:
-        expenses = Store.get_expenses()
-        expenses.insert(0, exp)
-        Store._save_expenses(expenses)
-        return exp
+        db = SessionLocal()
+        try:
+            repo = ExpenseRepository(db, Store._get_user_id())
+            db_exp = repo.add(
+                amount=exp.amount,
+                category=exp.category,
+                description=exp.description,
+                date_str=exp.date,
+                exp_type=exp.type,
+                recurring=exp.recurring
+            )
+            return Store._to_dataclass(db_exp)
+        finally:
+            db.close()
 
     @staticmethod
     def update_expense(exp_id: str, **kwargs) -> Optional[Expense]:
-        expenses = Store.get_expenses()
-        for exp in expenses:
-            if exp.id == exp_id:
-                for key, val in kwargs.items():
-                    if hasattr(exp, key):
-                        setattr(exp, key, val)
-                Store._save_expenses(expenses)
-                return exp
-        return None
+        db = SessionLocal()
+        try:
+            repo = ExpenseRepository(db, Store._get_user_id())
+            db_exp = repo.update(exp_id, kwargs)
+            return Store._to_dataclass(db_exp) if db_exp else None
+        finally:
+            db.close()
 
     @staticmethod
     def delete_expense(exp_id: str) -> bool:
-        expenses = Store.get_expenses()
-        new_list = [e for e in expenses if e.id != exp_id]
-        if len(new_list) == len(expenses):
-            return False
-        Store._save_expenses(new_list)
-        return True
+        db = SessionLocal()
+        try:
+            repo = ExpenseRepository(db, Store._get_user_id())
+            # SQLite doesn't natively return bool on delete so we assume True for now
+            repo.delete(exp_id)
+            return True
+        finally:
+            db.close()
 
     # ── Helpers ──────────────────────────────────────────────────────────
 

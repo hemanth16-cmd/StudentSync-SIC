@@ -26,8 +26,14 @@ def show_onboarding_dialog(page: ft.Page, on_complete_callback=None):
         name    = (name_field.value or "").strip() or "Student"
         college = (college_field.value or "").strip()
         Database.update_settings({"name": name, "college": college})
-        Database.set("visited", True)
-        dlg.open = False
+        Database.get("visited", True)
+        if hasattr(page, "close"):
+            try:
+                page.close(dlg)
+            except Exception:
+                dlg.open = False
+        else:
+            dlg.open = False
         page.update()
         show_toast(page, f"Welcome to StudentSync, {name}! 🚀", "success")
         if on_complete_callback:
@@ -71,8 +77,15 @@ def show_onboarding_dialog(page: ft.Page, on_complete_callback=None):
         actions_alignment=ft.MainAxisAlignment.CENTER,
     )
 
-    page.dialog = dlg
-    dlg.open = True
+    if hasattr(page, "open"):
+        try:
+            page.open(dlg)
+        except Exception:
+            page.dialog = dlg
+            dlg.open = True
+    else:
+        page.dialog = dlg
+        dlg.open = True
     page.update()
 
 
@@ -84,11 +97,21 @@ def show_toast(page: ft.Page, message: str, kind: str = "success"):
         "warning": AppColors.ORANGE,
         "info":    AppColors.BLUE,
     }
-    page.snack_bar = ft.SnackBar(
-        content=ft.Text(message, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
-        bgcolor=color_map.get(kind, AppColors.BLUE),
-        behavior=ft.SnackBarBehavior.FLOATING,
-        duration=3000,
-    )
-    page.snack_bar.open = True
-    page.update()
+    try:
+        snack = ft.SnackBar(
+            content=ft.Text(message, color=ft.Colors.WHITE, weight=ft.FontWeight.W_600),
+            bgcolor=color_map.get(kind, AppColors.BLUE),
+            behavior=ft.SnackBarBehavior.FLOATING,
+            duration=3000,
+        )
+        if hasattr(page, "open"):
+            try:
+                page.open(snack)
+                return
+            except Exception:
+                pass
+        page.snack_bar = snack
+        page.snack_bar.open = True
+        page.update()
+    except Exception as exc:
+        print(f"[Toast] Exception ignored: {exc}")

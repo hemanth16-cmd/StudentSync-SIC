@@ -148,5 +148,5 @@ def create_empty_state(
             spacing=12,
         ),
         padding=48,
-        alignment=ft.Alignment.CENTER,
+        alignment=ft.Alignment(0, 0),
     )

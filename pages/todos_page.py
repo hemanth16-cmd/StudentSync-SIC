@@ -42,15 +42,15 @@ def todos_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
         done  = sum(1 for t in todos if t.get("completed"))
         return len(todos), done, len(todos) - done
 
-    total_text   = ft.Text("0", size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
-    done_text    = ft.Text("0", size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
-    pending_text = ft.Text("0", size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
+    stats_col = ft.Row(spacing=16)
 
     def update_stats():
         total, done, pending = _counts()
-        total_text.value   = str(total)
-        done_text.value    = str(done)
-        pending_text.value = str(pending)
+        stats_col.controls = [
+            create_stat_card("Total Tasks",  str(total),   "All tasks",  ft.Icons.TASK_ALT,        AppColors.ORANGE, dark_mode),
+            create_stat_card("Completed",    str(done),    "Finished",   ft.Icons.CHECK_CIRCLE,    AppColors.GREEN,  dark_mode),
+            create_stat_card("Pending",      str(pending), "To-do",      ft.Icons.PENDING_ACTIONS, AppColors.BLUE,   dark_mode),
+        ]
 
     # ── Todo list ─────────────────────────────────────────────────────────
     todo_col = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
@@ -146,14 +146,7 @@ def todos_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
     update_stats()
     rebuild_list()
 
-    stats_row = ft.Row(
-        [
-            create_stat_card("Total Tasks",  total_text.value,   "All tasks",     ft.Icons.TASK_ALT,         AppColors.ORANGE, dark_mode),
-            create_stat_card("Completed",    done_text.value,    "Finished",      ft.Icons.CHECK_CIRCLE,     AppColors.GREEN,  dark_mode),
-            create_stat_card("Pending",      pending_text.value, "To-do",         ft.Icons.PENDING_ACTIONS,  AppColors.BLUE,   dark_mode),
-        ],
-        spacing=16,
-    )
+    # stats_col is already populated by update_stats() above
 
     add_card = create_card(
         content=ft.Row(
@@ -178,7 +171,7 @@ def todos_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
     return ft.Column(
         [
             create_section_header("To-Do List", "Organise and prioritise your tasks", dark_mode=dark_mode),
-            stats_row,
+            stats_col,
             add_card,
             ft.Row([filter_seg], alignment=ft.MainAxisAlignment.END),
             todo_col,

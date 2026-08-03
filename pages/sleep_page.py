@@ -26,12 +26,17 @@ def sleep_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
         logs = Database.get_sleep_logs()
         return (sum(l.get("duration", 0) for l in logs) / len(logs)) if logs else 0.0
 
-    avg_text   = ft.Text(f"{_avg():.1f} hrs", size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
-    count_text = ft.Text(str(len(Database.get_sleep_logs())), size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
+    # ── Stats container – rebuilt on every refresh ──────────────────────────
+    stats_col = ft.Row(spacing=16)
 
     def _rebuild():
-        avg_text.value   = f"{_avg():.1f} hrs"
-        count_text.value = str(len(Database.get_sleep_logs()))
+        # Rebuild stat cards with current values
+        stats_col.controls = [
+            create_stat_card("Avg Sleep",  f"{_avg():.1f} hrs",
+                             "Goal: 8.0 hrs", ft.Icons.BEDTIME,          AppColors.INDIGO, dark_mode),
+            create_stat_card("Total Logs", str(len(Database.get_sleep_logs())),
+                             "Sleep records",  ft.Icons.NIGHTLIGHT_ROUND, AppColors.PURPLE, dark_mode),
+        ]
 
         logs = Database.get_sleep_logs()
         sleep_col.controls.clear()
@@ -83,14 +88,6 @@ def sleep_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
 
     _rebuild()
 
-    stats_row = ft.Row(
-        [
-            create_stat_card("Avg Sleep", avg_text.value,   "Goal: 8.0 hrs", ft.Icons.BEDTIME,         AppColors.INDIGO, dark_mode),
-            create_stat_card("Total Logs", count_text.value, "Sleep records",  ft.Icons.NIGHTLIGHT_ROUND, AppColors.PURPLE, dark_mode),
-        ],
-        spacing=16,
-    )
-
     add_card = create_card(
         content=ft.Row(
             [dur_f, bed_f, wake_f, qual_dd,
@@ -109,7 +106,7 @@ def sleep_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
     return ft.Column(
         [
             create_section_header("Sleep Tracker", "Monitor sleep duration and rest quality", dark_mode=dark_mode),
-            stats_row,
+            stats_col,
             add_card,
             sleep_col,
         ],

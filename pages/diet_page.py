@@ -26,13 +26,15 @@ def diet_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
         logs  = [d for d in Database.get_diet_logs() if d.get("date") == today]
         return sum(d.get("calories", 0) for d in logs), len(logs)
 
-    cal_stat_text  = ft.Text("0 kcal", size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
-    meal_stat_text = ft.Text("0",      size=26, weight=ft.FontWeight.BOLD, color=get_text_primary(dark_mode))
+    # ── Stats container – rebuilt on every refresh ─────────────────────────
+    stats_col = ft.Row(spacing=16)
 
     def _rebuild():
         cals, meals = _today_cals()
-        cal_stat_text.value  = f"{cals} kcal"
-        meal_stat_text.value = str(meals)
+        stats_col.controls = [
+            create_stat_card("Today's Calories", f"{cals} kcal",  "Goal: 2000 kcal",  ft.Icons.LOCAL_FIRE_DEPARTMENT, AppColors.GREEN,  dark_mode),
+            create_stat_card("Meals Logged",     str(meals),       "Total entries",     ft.Icons.FLATWARE,              AppColors.ORANGE, dark_mode),
+        ]
 
         logs = Database.get_diet_logs()
         diet_col.controls.clear()
@@ -81,14 +83,6 @@ def diet_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
 
     _rebuild()
 
-    stats_row = ft.Row(
-        [
-            create_stat_card("Today's Calories", cal_stat_text.value,  "Goal: 2000 kcal",  ft.Icons.LOCAL_FIRE_DEPARTMENT, AppColors.GREEN, dark_mode),
-            create_stat_card("Meals Logged",     meal_stat_text.value, "Total entries",     ft.Icons.FLATWARE,              AppColors.ORANGE, dark_mode),
-        ],
-        spacing=16,
-    )
-
     add_card = create_card(
         content=ft.Row(
             [name_f, cal_f, meal_dd,
@@ -107,7 +101,7 @@ def diet_view(page: ft.Page, dark_mode: bool = True) -> ft.Control:
     return ft.Column(
         [
             create_section_header("Diet & Nutrition", "Track daily calorie intake and meals", dark_mode=dark_mode),
-            stats_row,
+            stats_col,
             add_card,
             diet_col,
         ],

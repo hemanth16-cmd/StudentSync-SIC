@@ -56,7 +56,7 @@ class Database:
         except Exception as e:
             print(f"[DATABASE] Failed to load cloud data: {e}")
             cls._init_defaults()
-            
+
     @classmethod
     def _init_defaults(cls):
         cls._data = {
@@ -85,7 +85,9 @@ class Database:
             "workouts": [],
             "expenses": [],
             "streak": {"count": 0, "lastDate": ""},
-            "daily_goals": []
+            "daily_goals": [],
+            "tasks": [],
+            "study_sessions": [],
         }
         cls.save()
 
@@ -118,6 +120,7 @@ class Database:
 
         except Exception as e:
             print(f"[DATABASE] Failed to save cloud data: {e}")
+
     @classmethod
     def get(cls, key: str, default: Any = None) -> Any:
         return cls._data.get(key, default)
@@ -196,6 +199,49 @@ class Database:
                 target = t
                 break
         cls.set("todos", todos)
+        return target
+
+    # ── TASKS (Smart Planner) ──
+    @classmethod
+    def get_tasks(cls) -> List[Dict[str, Any]]:
+        return cls.get("tasks", [])
+
+    @classmethod
+    def add_task(cls, title: str, description: str = "", subject: str = "",
+                 priority: str = "medium", due_date: str = "", due_time: str = "") -> Dict[str, Any]:
+        tasks = cls.get_tasks()
+        new_task = {
+            "id": cls.gen_id(),
+            "title": title,
+            "description": description,
+            "subject": subject,
+            "priority": priority,
+            "dueDate": due_date,
+            "dueTime": due_time,
+            "completed": False,
+            "createdAt": datetime.now().isoformat(),
+            "completedAt": None,
+        }
+        tasks.insert(0, new_task)
+        cls.set("tasks", tasks)
+        return new_task
+
+    @classmethod
+    def delete_task(cls, task_id: str):
+        tasks = [t for t in cls.get_tasks() if t["id"] != task_id]
+        cls.set("tasks", tasks)
+
+    @classmethod
+    def toggle_task(cls, task_id: str) -> Optional[Dict[str, Any]]:
+        tasks = cls.get_tasks()
+        target = None
+        for t in tasks:
+            if t["id"] == task_id:
+                t["completed"] = not t["completed"]
+                t["completedAt"] = datetime.now().isoformat() if t["completed"] else None
+                target = t
+                break
+        cls.set("tasks", tasks)
         return target
 
     # ── SUBJECTS ──
@@ -356,13 +402,15 @@ class Database:
         cls.set("habits", habits)
         return target
 
-    # ── PLANNER ──
+    # ── PLANNER / TIMETABLE ──
     @classmethod
     def get_planner_events(cls) -> List[Dict[str, Any]]:
         return cls.get("planner", [])
 
     @classmethod
-    def add_planner_event(cls, title: str, day: int, start_time: str, end_time: str, event_type: str = "class", color: str = "#2563EB") -> Dict[str, Any]:
+    def add_planner_event(cls, title: str, day: int, start_time: str, end_time: str,
+                          event_type: str = "class", color: str = "#2563EB",
+                          faculty: str = "", room: str = "") -> Dict[str, Any]:
         events = cls.get_planner_events()
         new_ev = {
             "id": cls.gen_id(),
@@ -371,7 +419,9 @@ class Database:
             "startTime": start_time,
             "endTime": end_time,
             "type": event_type,
-            "color": color
+            "color": color,
+            "faculty": faculty,
+            "room": room,
         }
         events.append(new_ev)
         cls.set("planner", events)
@@ -381,6 +431,28 @@ class Database:
     def delete_planner_event(cls, event_id: str):
         events = [e for e in cls.get_planner_events() if e["id"] != event_id]
         cls.set("planner", events)
+
+    # ── STUDY SESSIONS ──
+    @classmethod
+    def get_study_sessions(cls) -> List[Dict[str, Any]]:
+        return cls.get("study_sessions", [])
+
+    @classmethod
+    def add_study_session(cls, subject: str, topic: str = "", planned_duration: int = 60,
+                          actual_duration: int = 0, date_str: str = "") -> Dict[str, Any]:
+        sessions = cls.get_study_sessions()
+        new_session = {
+            "id": cls.gen_id(),
+            "subject": subject,
+            "topic": topic,
+            "plannedDuration": planned_duration,
+            "actualDuration": actual_duration,
+            "date": date_str or cls.today_str(),
+            "createdAt": datetime.now().isoformat(),
+        }
+        sessions.insert(0, new_session)
+        cls.set("study_sessions", sessions)
+        return new_session
 
     # ── SLEEP ──
     @classmethod
@@ -430,7 +502,7 @@ class Database:
         return cls.get("workouts", [])
 
     @classmethod
-    def add_workout(cls, name: str, workout_type: str = "strength", duration: int = 30, calories: int = 200) -> Dict[str, Any]:
+    def add_workout(cls, name: str, workout_type: str = "strength", duration: int = 30, calories: int = 200, exercises: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         workouts = cls.get_workouts()
         new_w = {
             "id": cls.gen_id(),
@@ -438,11 +510,32 @@ class Database:
             "type": workout_type,
             "name": name,
             "duration": duration,
-            "calories": calories
+            "calories": calories,
+            "exercises": exercises or []
         }
         workouts.insert(0, new_w)
         cls.set("workouts", workouts)
         return new_w
+
+    @classmethod
+    def delete_workout(cls, workout_id: str):
+        workouts = [w for w in cls.get_workouts() if w["id"] != workout_id]
+        cls.set("workouts", workouts)
+
+    @classmethod
+    def get_workout_streak(cls) -> int:
+        """Consecutive days with at least one workout logged."""
+        workouts = cls.get_workouts()
+        workout_dates = set(w.get("date", "") for w in workouts)
+        streak = 0
+        d = date.today()
+        # If no workout today, allow yesterday to still be the start
+        if d.isoformat() not in workout_dates:
+            d -= timedelta(days=1)
+        while d.isoformat() in workout_dates:
+            streak += 1
+            d -= timedelta(days=1)
+        return streak
 
     # ── STREAK ──
     @classmethod
@@ -464,5 +557,7 @@ class Database:
         cls.set("streak", streak_data)
         return streak_data["count"]
 
-# Initialize on module load
-Database.load()
+# Initialise with safe defaults on module load.
+# Firestore data is loaded explicitly via Database.load()
+# after the user authenticates (see pages/auth_page.py).
+Database._init_defaults()

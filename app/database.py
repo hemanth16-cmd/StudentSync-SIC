@@ -2,6 +2,8 @@
 Database & Local Persistence Layer for StudentSync (Python Flet)
 Replaces localStorage (store.js) with local JSON storage backend.
 """
+from authentication.auth_service import AuthService
+from authentication.firebase_auth import get_db
 
 import json
 import os
@@ -13,20 +15,48 @@ DB_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "student
 
 class Database:
     _data: Dict[str, Any] = {}
-
     @classmethod
     def load(cls):
-        """Load data from JSON file or initialize defaults."""
-        if os.path.exists(DB_FILE_PATH):
-            try:
-                with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
-                    cls._data = json.load(f)
-            except Exception as e:
-                print(f"Error loading database: {e}")
-                cls._init_defaults()
-        else:
-            cls._init_defaults()
+        """Load the current user's data from Firestore."""
 
+        user = AuthService.current_user()
+
+        # No logged-in user -> keep old local behavior
+        if user is None:
+            if os.path.exists(DB_FILE_PATH):
+                try:
+                    with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
+                        cls._data = json.load(f)
+                except Exception as e:
+                    print(f"Error loading local database: {e}")
+                    cls._init_defaults()
+            else:
+                cls._init_defaults()
+            return
+
+        # Logged in -> load from Firestore
+        try:
+            db = get_db()
+
+            doc = (
+                db.collection("users")
+                .document(user.uid)
+                .collection("appData")
+                .document("database")
+                .get()
+            )
+
+            if doc.exists:
+                cls._data = doc.to_dict()
+                print(f"[DATABASE] Loaded cloud data for {user.email}")
+            else:
+                print("[DATABASE] No cloud data found. Initializing defaults.")
+                cls._init_defaults()
+
+        except Exception as e:
+            print(f"[DATABASE] Failed to load cloud data: {e}")
+            cls._init_defaults()
+            
     @classmethod
     def _init_defaults(cls):
         cls._data = {
@@ -61,13 +91,33 @@ class Database:
 
     @classmethod
     def save(cls):
-        """Save current memory data to JSON file."""
-        try:
-            with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
-                json.dump(cls._data, f, indent=2)
-        except Exception as e:
-            print(f"Error saving database: {e}")
+        """Save to Firestore if logged in, otherwise save locally."""
 
+        user = AuthService.current_user()
+
+        if user is None:
+            try:
+                with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
+                    json.dump(cls._data, f, indent=2)
+            except Exception as e:
+                print(f"Error saving local database: {e}")
+            return
+
+        try:
+            db = get_db()
+
+            (
+                db.collection("users")
+                .document(user.uid)
+                .collection("appData")
+                .document("database")
+                .set(cls._data)
+            )
+
+            print(f"[DATABASE] Saved cloud data for {user.email}")
+
+        except Exception as e:
+            print(f"[DATABASE] Failed to save cloud data: {e}")
     @classmethod
     def get(cls, key: str, default: Any = None) -> Any:
         return cls._data.get(key, default)

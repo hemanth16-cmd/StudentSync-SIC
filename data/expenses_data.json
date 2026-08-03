@@ -1,0 +1,70 @@
+{
+  "expenses": [
+    {
+      "id": "f3bf5901-040",
+      "date": "2026-08-03",
+      "type": "expense",
+      "category": "food",
+      "description": "",
+      "amount": 700.0,
+      "notes": "",
+      "recurring": false
+    },
+    {
+      "id": "7e41c78f-257",
+      "date": "2026-08-03",
+      "type": "expense",
+      "category": "other",
+      "description": "",
+      "amount": 3000.0,
+      "notes": "",
+      "recurring": false
+    },
+    {
+      "id": "7f9261aa-0b5",
+      "date": "2026-08-03",
+      "type": "income",
+      "category": "income",
+      "description": "",
+      "amount": 5000.0,
+      "notes": "",
+      "recurring": false
+    },
+    {
+      "id": "daf2578b-806",
+      "date": "2026-08-03",
+      "type": "income",
+      "category": "income",
+      "description": "",
+      "amount": 4000.0,
+      "notes": "",
+      "recurring": false
+    },
+    {
+      "id": "8360b191-dab",
+      "date": "2026-08-02",
+      "type": "expense",
+      "category": "health",
+      "description": "medicines",
+      "amount": 40.0,
+      "notes": "",
+      "recurring": false
+    },
+    {
+      "id": "78d87a89-e33",
+      "date": "2026-08-01",
+      "type": "expense",
+      "category": "subscription",
+      "description": "netflix",
+      "amount": 500.0,
+      "notes": "",
+      "recurring": false
+    }
+  ],
+  "settings": {
+    "name": "Student",
+    "budget_monthly": 5000.0,
+    "savings_goal": 1000.0,
+    "currency": "₹"
+  }
+}

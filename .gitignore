@@ -1,0 +1,36 @@
+config/firebase_key.json
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment configuration
+.env
+.env.local
+.env.*.local
+
+# Local database & runtime data storage
+data/
+studentsync_backend.db
+studentsync_backend.db-journal
+studentsync_data.json
+
+# Logs & temporary files
+*.log
+*.sqlite
+fix_border.py
+fix_padding.py
+
+# IDE & OS settings
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

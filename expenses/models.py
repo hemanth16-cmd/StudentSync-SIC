@@ -21,6 +21,7 @@ CATEGORIES: dict[str, str] = {
     "subscription":   "📱 Subscription",
     "tuition":        "🏫 Tuition",
     "income":         "💵 Income",
+    "allowance":      "💸 Monthly Allowance",
     "other":          "💰 Other",
 }
 
@@ -34,6 +35,7 @@ CATEGORY_COLORS: dict[str, str] = {
     "subscription":   "#6366F1",
     "tuition":        "#2563EB",
     "income":         "#059669",
+    "allowance":      "#F472B6",
     "other":          "#94A3B8",
 }
 

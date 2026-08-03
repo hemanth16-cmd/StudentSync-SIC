@@ -16,7 +16,7 @@ except ImportError:
     initialize_firebase = lambda: None
     get_db = lambda: None
 
->>>>>>> 8da3437 (Fix authentication and attendance integration)
+
 from authentication.models import User
 from authentication.session import Session
 from authentication.validators import validate_email, validate_password, validate_name

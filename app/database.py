@@ -5,7 +5,6 @@ Routes all operations through SQLAlchemy repositories (SQLite backend).
 
 
 from authentication.auth_service import AuthService
-from authentication.firebase_auth import get_db
 from authentication.session import Session
 
 import json
@@ -14,52 +13,38 @@ import os
 import uuid
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
+from app.db import SessionLocal, Base, engine
+from app.repositories import (
+    UserRepository, NoteRepository, TodoRepository, SubjectRepository,
+    AssignmentRepository, ExpenseRepository, HabitRepository,
+    NotificationRepository, EventRepository, ResultRepository, FeeRepository,
+    DietRepository, WaterRepository
+)
+
+def _get_user_id() -> str:
+    user = AuthService.current_user()
+    return user.uid if user else "anonymous"
+
+def _obj_to_dict(obj) -> Dict[str, Any]:
+    """Convert a SQLAlchemy ORM row to a plain dict."""
+    if obj is None:
+        return {}
+    d = {}
+    for c in obj.__table__.columns:
+        v = getattr(obj, c.name)
+        if isinstance(v, datetime):
+            d[c.name] = v.isoformat()
+        elif isinstance(v, date):
+            d[c.name] = v.isoformat()
+        else:
+            d[c.name] = v
+    return d
+
 
 DB_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "studentsync_data.json")
 
 class Database:
     _data: Dict[str, Any] = {}
-    @classmethod
-    def load(cls):
-        """Load the current user's data from Firestore."""
-
-        user = AuthService.current_user()
-
-        # No logged-in user -> keep old local behavior
-        if user is None:
-            if os.path.exists(DB_FILE_PATH):
-                try:
-                    with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
-                        cls._data = json.load(f)
-                except Exception as e:
-                    print(f"Error loading local database: {e}")
-                    cls._init_defaults()
-            else:
-                cls._init_defaults()
-            return
-
-        # Logged in -> load from Firestore
-        try:
-            db = get_db()
-
-            doc = (
-                db.collection("users")
-                .document(user.uid)
-                .collection("appData")
-                .document("database")
-                .get()
-            )
-
-            if doc.exists:
-                cls._data = doc.to_dict()
-                print(f"[DATABASE] Loaded cloud data for {user.email}")
-            else:
-                print("[DATABASE] No cloud data found. Initializing defaults.")
-                cls._init_defaults()
-
-        except Exception as e:
-            print(f"[DATABASE] Failed to load cloud data: {e}")
-            cls._init_defaults()
 
     @classmethod
     def _init_defaults(cls):
@@ -97,34 +82,30 @@ class Database:
 
     @classmethod
     def save(cls):
-        """Save to Firestore if logged in, otherwise save locally."""
-
-        user = AuthService.current_user()
-
-        if user is None:
-            try:
-                with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
-                    json.dump(cls._data, f, indent=2)
-            except Exception as e:
-                print(f"Error saving local database: {e}")
-            return
-
+        """Save locally."""
         try:
-            db = get_db()
-
-            (
-                db.collection("users")
-                .document(user.uid)
-                .collection("appData")
-                .document("database")
-                .set(cls._data)
-            )
+            with open(DB_FILE_PATH, "w", encoding="utf-8") as f:
+                json.dump(cls._data, f, indent=2)
+        except Exception as e:
+            print(f"Error saving local database: {e}")
 
 
     @classmethod
     def load(cls):
-        """No-op — SQLite is always ready after module import."""
-        pass
+        """Ensure SQLite tables exist and legacy JSON cache is initialized."""
+        import app.models  # noqa: F401 — register ORM models with Base.metadata
+        Base.metadata.create_all(bind=engine)
+        if cls._data:
+            return
+        if os.path.exists(DB_FILE_PATH):
+            try:
+                with open(DB_FILE_PATH, "r", encoding="utf-8") as f:
+                    cls._data = json.load(f)
+            except Exception as e:
+                print(f"Error loading local database: {e}")
+                cls._init_defaults()
+        else:
+            cls._init_defaults()
 
     @staticmethod
     def today_str() -> str:
@@ -394,18 +375,145 @@ class Database:
             db.close()
 
     # ── Sleep ─────────────────────────────────────────────────────────────
+    # ── Sleep ─────────────────────────────────────────────────────────────
     @classmethod
     def get_sleep_logs(cls) -> List[Dict[str, Any]]:
-        from app.models import User
-        # Sleep is still stored in a simple table; add SleepLog model/repo if needed.
-        # For now return empty list.
-        return []
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            # Fetch logs ordered by newest first
+            result = db.execute(text("SELECT * FROM sleep_logs ORDER BY date DESC")).mappings().all()
+            return [dict(row) for row in result]
+        except Exception:
+            return []  # Return empty if table doesn't exist yet
+        finally:
+            db.close()
 
     @classmethod
     def add_sleep_log(cls, duration: float, quality: int = 3, bedtime: str = "",
                       wake_time: str = "", date_str: str = "") -> Dict[str, Any]:
-        return {}
+        if not date_str:
+            date_str = Database.today_str()
+        log_id = str(uuid.uuid4())
+        
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            # Ensure the table exists dynamically
+            db.execute(text('''
+                CREATE TABLE IF NOT EXISTS sleep_logs (
+                    id TEXT PRIMARY KEY,
+                    date TEXT NOT NULL,
+                    duration REAL NOT NULL,
+                    quality INTEGER NOT NULL,
+                    bedtime TEXT,
+                    wake_time TEXT
+                )
+            '''))
+            # Insert the new log
+            db.execute(text('''
+                INSERT INTO sleep_logs (id, date, duration, quality, bedtime, wake_time)
+                VALUES (:id, :date, :duration, :quality, :bedtime, :wake_time)
+            '''), {
+                "id": log_id, "date": date_str, "duration": duration,
+                "quality": quality, "bedtime": bedtime, "wake_time": wake_time
+            })
+            db.commit()
+            return {
+                "id": log_id, "date": date_str, "duration": duration, 
+                "quality": quality, "bedtime": bedtime, "wake_time": wake_time
+            }
+        finally:
+            db.close()
 
+    @classmethod
+    def delete_sleep_log(cls, log_id: str):
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            db.execute(text("DELETE FROM sleep_logs WHERE id = :id"), {"id": log_id})
+            db.commit()
+        finally:
+            db.close()
+
+
+    # ── Workout ───────────────────────────────────────────────────────────
+    
+    @classmethod
+    def get_workouts(cls):
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            db.execute(text('''
+                CREATE TABLE IF NOT EXISTS workouts (
+                    id TEXT PRIMARY KEY,
+                    date TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    workout_type TEXT NOT NULL,
+                    duration INTEGER NOT NULL,
+                    calories INTEGER NOT NULL
+                )
+            '''))
+            db.commit()
+            
+            result = db.execute(text("SELECT id, date, name, workout_type, duration, calories FROM workouts ORDER BY date DESC"))
+            rows = result.fetchall()
+            return [
+                {
+                    "id": row[0],
+                    "date": row[1],
+                    "name": row[2],
+                    "workout_type": row[3],
+                    "duration": row[4],
+                    "calories": row[5]
+                }
+                for row in rows
+            ]
+        finally:
+            db.close()
+
+    
+    @classmethod
+    def add_workout(cls, name: str, workout_type: str = "strength", duration: int = 30, calories: int = 200, date_str: str = ""):
+        import uuid
+        if not date_str:
+            date_str = Database.today_str()
+        workout_id = str(uuid.uuid4())
+        
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            db.execute(text('''
+                CREATE TABLE IF NOT EXISTS workouts (
+                    id TEXT PRIMARY KEY,
+                    date TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    workout_type TEXT NOT NULL,
+                    duration INTEGER NOT NULL,
+                    calories INTEGER NOT NULL
+                )
+            '''))
+            db.execute(text('''
+                INSERT INTO workouts (id, date, name, workout_type, duration, calories)
+                VALUES (:id, :date, :name, :type, :duration, :calories)
+            '''), {
+                "id": workout_id, "date": date_str, "name": name, 
+                "type": workout_type, "duration": duration, "calories": calories
+            })
+            db.commit()
+        finally:
+            db.close() 
+
+    @classmethod
+    def delete_workout(cls, log_id: str):
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            db.execute(text("DELETE FROM workouts WHERE id = :id"), {"id": log_id})
+            db.commit()
+        finally:
+            db.close()
+        
     # ── Diet ──────────────────────────────────────────────────────────────
     @classmethod
     def get_diet_logs(cls) -> List[Dict[str, Any]]:
@@ -416,11 +524,19 @@ class Database:
             db.close()
 
     @classmethod
+    def get_diet_logs_by_date(cls, date_str: str) -> List[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            return [_obj_to_dict(d) for d in DietRepository(db, _get_user_id()).get_by_date(date_str)]
+        finally:
+            db.close()
+
+    @classmethod
     def add_diet_entry(cls, name: str, calories: int, meal: str = "breakfast",
                        date_str: str = "", protein: float = 0, carbs: float = 0, fat: float = 0) -> Dict[str, Any]:
         db = SessionLocal()
         try:
-            log = DietRepository(db, _get_user_id()).add(name, calories, meal, date_str)
+            log = DietRepository(db, _get_user_id()).add(name, calories, meal, date_str, protein, carbs, fat)
             return _obj_to_dict(log)
         finally:
             db.close()
@@ -442,16 +558,30 @@ class Database:
         finally:
             db.close()
 
+    # ── Water ─────────────────────────────────────────────────────────────
+    @classmethod
+    def get_water_intake(cls, date_str: str = "") -> int:
+        db = SessionLocal()
+        try:
+            if not date_str:
+                date_str = date.today().isoformat()
+            return WaterRepository(db, _get_user_id()).get_water(date_str)
+        finally:
+            db.close()
+
+    @classmethod
+    def add_water_intake(cls, amount: int, date_str: str = "") -> int:
+        db = SessionLocal()
+        try:
+            if not date_str:
+                date_str = date.today().isoformat()
+            return WaterRepository(db, _get_user_id()).add_water(date_str, amount)
+        finally:
+            db.close()
+
+
 
     # ── Workout ───────────────────────────────────────────────────────────
-    @classmethod
-    def get_workouts(cls) -> List[Dict[str, Any]]:
-        return []
-
-    @classmethod
-    def add_workout(cls, name: str, workout_type: str = "strength",
-                    duration: int = 30, calories: int = 200) -> Dict[str, Any]:
-        return {}
 
     # ── Planner ───────────────────────────────────────────────────────────
     @classmethod

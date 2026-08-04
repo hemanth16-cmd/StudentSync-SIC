@@ -46,7 +46,7 @@ from components.common_widgets import (
 
 from pages.todos_page import todos_view
 from pages.planner_page import planner_view
-from pages.subjects_page import subjects_view
+from pages.subjects_page import subject_view
 from pages.assignments_page import assignments_view
 from pages.notes_page import notes_view
 from pages.attendance_page import attendance_view
@@ -64,7 +64,7 @@ from pages.settings_page import settings_view
 
 Router.register("todos", todos_view)
 Router.register("planner", planner_view)
-Router.register("subjects", subjects_view)
+Router.register("subjects", subject_view)
 Router.register("assignments", assignments_view)
 Router.register("notes", notes_view)
 Router.register("attendance", attendance_view)

@@ -20,11 +20,8 @@ A modern productivity dashboard designed specifically for college students.
 - 🌙 Dark Mode
 
 ## 🛠 Built With
-
-- HTML5
-- CSS3
-- JavaScript
-- LocalStorage
+- Python
+- Firebase
 
 ## 🚀 Future Features
 

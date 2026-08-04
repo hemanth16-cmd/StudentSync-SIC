@@ -197,7 +197,9 @@ class Database:
     def get_subjects(cls) -> List[Dict[str, Any]]:
         db = SessionLocal()
         try:
-            return [_obj_to_dict(s) for s in SubjectRepository(db, _get_user_id()).get_all()]
+            from app.models import Subject
+            subjects = db.query(Subject).all()
+            return [_obj_to_dict(s) for s in subjects]
         finally:
             db.close()
 
